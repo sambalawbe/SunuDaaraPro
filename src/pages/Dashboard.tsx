@@ -9,7 +9,9 @@ import {
   TrendingDown,
   Wallet,
   Stethoscope,
-  Package
+  Package,
+  Calendar,
+  MessageSquare
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -27,15 +29,9 @@ import {
 } from 'recharts';
 import { motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
+import { useApp } from '../context/AppContext';
 
-// Données fictives pour la démo
-const distributionNiveau = [
-  { name: 'Niveau I (Débutants)', value: 120 },
-  { name: 'Niveau II (Moyen)', value: 85 },
-  { name: 'Niveau III (Avancé)', value: 45 },
-  { name: 'Hafiz', value: 15 },
-];
-
+// Couleurs pour les graphiques
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#7c3aed'];
 
 const evolutionFinances = [
@@ -89,49 +85,133 @@ const StatCard = ({ title, value, icon: Icon, trend, className }: StatCardProps)
 );
 
 export function Dashboard() {
+  const { eleves, enseignants, articles, consultations, mouvements, logs, dons, depenses } = useApp();
+
+  // Calcul des statistiques dynamiques
+  const totalEleves = eleves.length;
+  const hafizCount = eleves.filter(e => e.niveau_actuel === 'Hafiz').length;
+  const stockCritiqueCount = articles.filter(a => a.quantite <= a.seuil_alerte).length;
+  
+  // Finances
+  const totalDons = dons.reduce((sum, d) => sum + d.montant, 0);
+  const totalDepenses = depenses.reduce((sum, d) => sum + d.montant, 0);
+  const soldeCaisse = totalDons - totalDepenses;
+
+  const currentMonth = new Date().getMonth();
+  const donsMois = dons
+    .filter(d => new Date(d.date_don).getMonth() === currentMonth)
+    .reduce((sum, d) => sum + d.montant, 0);
+  const depensesMois = depenses
+    .filter(d => new Date(d.date_depense).getMonth() === currentMonth)
+    .reduce((sum, d) => sum + d.montant, 0);
+
+  // Seuil critique fund alert (ex: less than 200,000 CFA for demonstration)
+  const isBudgetLow = soldeCaisse < 200000;
+
+  // Distribution par niveau pour le graphique
+  const niveaux = ['Débutant', 'Intermédiaire', 'Hafiz'];
+  const dynamicDistribution = niveaux.map(n => ({
+    name: n,
+    value: eleves.filter(e => e.niveau_actuel === n).length
+  }));
+
+  // Activités récentes consolidées
+  const recentActivities = [
+    ...dons.slice(0, 1).map(d => ({
+      id: `don-${d.id}`,
+      user: d.donateur_nom,
+      action: `Don reçu: ${d.montant.toLocaleString()} CFA`,
+      time: 'Récent',
+      icon: Wallet,
+      color: 'bg-green-50 text-green-600'
+    })),
+    ...depenses.slice(0, 1).map(dep => ({
+      id: `dep-${dep.id}`,
+      user: dep.libelle,
+      action: `Dépense: -${dep.montant.toLocaleString()} CFA`,
+      time: 'Récent',
+      icon: TrendingDown,
+      color: 'bg-red-50 text-red-600'
+    })),
+    ...consultations.slice(0, 1).map(c => ({
+      id: `c-${c.id}`,
+      user: `${c.eleve_prenom} ${c.eleve_nom}`,
+      action: `Santé: ${c.diagnostic}`,
+      time: 'Aujourd\'hui',
+      icon: Stethoscope,
+      color: 'bg-orange-50 text-orange-600'
+    })),
+    ...mouvements.slice(0, 1).map(m => ({
+      id: `m-${m.id}`,
+      user: 'Stock',
+      action: `${m.type_mouvement}: ${m.quantite} unités`,
+      time: 'Récent',
+      icon: Package,
+      color: 'bg-blue-50 text-blue-600'
+    }))
+  ];
+
   return (
     <div className="space-y-8 pb-12">
       {/* Header Section */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Bienvenue, Admin Daara</h1>
-          <p className="text-gray-500">Aperçu global de votre établissement coranique.</p>
+          <h1 className="text-2xl font-bold text-gray-800">Tableau de Bord Social</h1>
+          <p className="text-gray-500">Gestion de l'internat solidaire et de la trésorerie.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 text-black">
            <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-            Exporter PDF
+            Exporter Rapport
           </button>
-          <button className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 transition-colors">
-            Ajouter un élève
+          <button className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 transition-colors flex items-center gap-2">
+            <TrendingUp className="w-4 h-4" />
+            Nouveau Don
           </button>
         </div>
       </header>
 
+      {/* Alertes Budget */}
+      {isBudgetLow && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-4 text-red-700"
+        >
+          <AlertCircle className="w-6 h-6 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-bold">Alerte Trésorerie Critique</p>
+            <p className="text-xs opacity-80">Le solde actuel est insuffisant pour couvrir les besoins alimentaires du mois prochain.</p>
+          </div>
+          <button className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-600/20">Voir Détails</button>
+        </motion.div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
-          title="Élèves Actifs" 
-          value="265" 
-          icon={Users} 
+          title="Solde de Caisse" 
+          value={`${soldeCaisse.toLocaleString()} CFA`} 
+          icon={Wallet} 
           trend={{ value: 12, isUp: true }} 
+          className={soldeCaisse < 100000 ? "border-red-100 bg-red-50/10" : ""}
         />
         <StatCard 
-          title="Mémorisateurs (Hafiz)" 
-          value="15" 
-          icon={GraduationCap} 
-          trend={{ value: 2, isUp: true }} 
-        />
-        <StatCard 
-          title="Recettes (CFA)" 
-          value="1,245,000" 
+          title="Dons (Mois)" 
+          value={`${donsMois.toLocaleString()} CFA`} 
           icon={TrendingUp} 
-          trend={{ value: 5, isUp: true }} 
+          trend={{ value: 8, isUp: true }} 
+        />
+        <StatCard 
+          title="Dépenses (Mois)" 
+          value={`${depensesMois.toLocaleString()} CFA`} 
+          icon={TrendingDown} 
+          trend={{ value: 5, isUp: false }} 
         />
         <StatCard 
           title="Stock Critique" 
-          value="4" 
+          value={stockCritiqueCount} 
           icon={AlertCircle} 
-          className="border-red-100"
+          className={cn(stockCritiqueCount > 0 ? "border-orange-100 bg-orange-50/10 text-orange-600" : "")}
         />
       </div>
 
@@ -147,7 +227,7 @@ export function Dashboard() {
           </div>
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={distributionNiveau} barSize={40}>
+              <BarChart data={dynamicDistribution} barSize={40}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                 <XAxis 
                   dataKey="name" 
@@ -165,7 +245,7 @@ export function Dashboard() {
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                  {distributionNiveau.map((entry, index) => (
+                  {dynamicDistribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Bar>
@@ -181,7 +261,7 @@ export function Dashboard() {
              <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={distributionNiveau}
+                  data={dynamicDistribution}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -189,7 +269,7 @@ export function Dashboard() {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {distributionNiveau.map((entry, index) => (
+                  {dynamicDistribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -198,7 +278,7 @@ export function Dashboard() {
             </ResponsiveContainer>
           </div>
           <div className="mt-4 space-y-2">
-            {distributionNiveau.map((item, index) => (
+            {dynamicDistribution.map((item, index) => (
               <div key={item.name} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index] }} />
@@ -219,12 +299,7 @@ export function Dashboard() {
             <button className="text-sm text-green-600 font-medium hover:underline">Voir tout</button>
           </div>
           <div className="divide-y divide-gray-50">
-            {[
-              { id: 1, type: 'payment', user: 'Pape Diouf', action: 'à payé sa scolarité de Juin', time: 'il y a 2h', icon: Wallet, color: 'bg-green-50 text-green-600' },
-              { id: 2, type: 'behavior', user: 'Ibrahima Fall', action: 'a reçu un bonus (+10 pts) - Tarbyya', time: 'il y a 4h', icon: TrendingUp, color: 'bg-green-50 text-green-600' },
-              { id: 3, type: 'medical', user: 'Modou Lo', action: 'Consultation à l\'infirmerie (Fièvre)', time: 'il y a 5h', icon: Stethoscope, color: 'bg-orange-50 text-orange-600' },
-              { id: 4, type: 'inventory', user: 'Stock', action: 'Alerte: Mouchafs en rupture', time: 'il y a 1j', icon: Package, color: 'bg-red-50 text-red-600' },
-            ].map((activity) => (
+            {recentActivities.map((activity) => (
               <div key={activity.id} className="p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors">
                 <div className={cn("p-2 rounded-full", activity.color)}>
                   <activity.icon className="w-5 h-5" />

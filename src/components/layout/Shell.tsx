@@ -20,6 +20,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 
 interface SidebarItemProps {
+  key?: string | number;
   icon: React.ElementType;
   label: string;
   active?: boolean;
@@ -65,7 +66,7 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
     { id: 'dashboard', label: 'Tableau de Bord', icon: LayoutDashboard },
     { id: 'eleves', label: 'Élèves', icon: Users },
     { id: 'enseignants', label: 'Enseignants', icon: UserRound },
-    { id: 'finance', label: 'Finances', icon: Wallet },
+    { id: 'finances', label: 'Finances', icon: Wallet },
     { id: 'logistique', label: 'Logistique', icon: Package },
     { id: 'logement', label: 'Hébergement', icon: Bed },
     { id: 'sante', label: 'Santé', icon: Stethoscope },
@@ -85,7 +86,7 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
               <div className="w-8 h-8 bg-green-700 rounded flex items-center justify-center shrink-0">
                 <span className="text-white font-bold text-lg">S</span>
               </div>
-              <span className="font-bold text-lg text-gray-800 whitespace-nowrap">Sama Daara Pro</span>
+              <span className="font-bold text-lg text-gray-800 whitespace-nowrap">Sunu Daara Pro</span>
             </div>
           )}
           <button 
@@ -185,7 +186,7 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
                   <div className="w-8 h-8 bg-green-700 rounded flex items-center justify-center">
                     <span className="text-white font-bold text-lg">S</span>
                   </div>
-                  <span className="font-bold text-lg text-gray-800">Sama Daara Pro</span>
+                  <span className="font-bold text-lg text-gray-800">Sunu Daara Pro</span>
                 </div>
                 <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-gray-500">
                   <X className="w-6 h-6" />

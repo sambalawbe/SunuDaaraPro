@@ -21,31 +21,52 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { ConsultationMedicale, FicheMedicale, Eleve } from '@/src/types';
-import { MOCK_ELEVES, MOCK_CONSULTATIONS, MOCK_MEDICAL_RECORDS } from '@/src/lib/constants';
+import { useApp } from '../context/AppContext';
 
 export function Health() {
+  const { eleves, consultations, fichesMedicales, addConsultation } = useApp();
   const [selectedStudentId, setSelectedStudentId] = React.useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
   
   // Stats
-  const totalConsultationsToday = MOCK_CONSULTATIONS.filter(c => {
+  const totalConsultationsToday = consultations.filter(c => {
     const today = new Date().toISOString().split('T')[0];
     return c.date_consultation.startsWith(today);
   }).length;
   
-  const studentsInInfirmary = MOCK_CONSULTATIONS.filter(c => c.statut_eleve === 'Repos').length;
-  const criticalAllergiesCount = MOCK_MEDICAL_RECORDS.filter(r => r.allergies && r.allergies !== 'Aucune').length;
+  const studentsInInfirmary = consultations.filter(c => c.statut_eleve === 'Repos').length;
+  const criticalAllergiesCount = fichesMedicales.filter(r => r.allergies && r.allergies !== 'Aucune').length;
 
-  const filteredConsultations = MOCK_CONSULTATIONS.filter(c => 
+  const filteredConsultations = consultations.filter(c => 
     `${c.eleve_prenom} ${c.eleve_nom}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.diagnostic.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const selectedStudent = MOCK_ELEVES.find(e => e.id === selectedStudentId);
-  const selectedMedicalRecord = MOCK_MEDICAL_RECORDS.find(r => r.eleve_id === selectedStudentId);
-  const selectedStudentConsultations = MOCK_CONSULTATIONS.filter(c => c.eleve_id === selectedStudentId);
+  const selectedStudent = eleves.find(e => e.id === selectedStudentId);
+  const selectedMedicalRecord = fichesMedicales.find(r => r.eleve_id === selectedStudentId);
+  const selectedStudentConsultations = consultations.filter(c => c.eleve_id === selectedStudentId);
+
+  const handleAddConsultation = () => {
+    if (!selectedStudentId) return;
+    const student = eleves.find(e => e.id === selectedStudentId);
+    if (!student) return;
+
+    addConsultation({
+      id: 0,
+      eleve_id: student.id,
+      eleve_nom: student.nom,
+      eleve_prenom: student.prenom,
+      date_consultation: new Date().toISOString(),
+      symptomes: "Nouveaux symptômes",
+      diagnostic: "Diagnostic temporaire",
+      traitement: "Traitement exemple",
+      statut_eleve: 'Repos',
+      emetteur: 'Infirmier de garde'
+    });
+    setIsModalOpen(false);
+  };
 
   const StatCard = ({ icon: Icon, label, value, color }: any) => (
     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
@@ -237,7 +258,7 @@ export function Health() {
                     value={selectedStudentId || ''}
                   >
                     <option value="">Chercher un élève...</option>
-                    {MOCK_ELEVES.map(e => (
+                    {eleves.map(e => (
                       <option key={e.id} value={e.id}>{e.prenom} {e.nom} ({e.matricule})</option>
                     ))}
                   </select>
@@ -252,14 +273,14 @@ export function Health() {
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      {MOCK_MEDICAL_RECORDS.find(r => r.eleve_id === selectedStudentId)?.allergies !== 'Aucune' ? (
+                      {fichesMedicales.find(r => r.eleve_id === selectedStudentId)?.allergies !== 'Aucune' ? (
                         <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-start gap-4">
                           <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-1" />
                           <div>
                             <p className="text-sm font-bold text-red-700">Alerte Allergies !</p>
                             <p className="text-xs text-red-600 mt-1">
-                              Cet élève présente les allergies suivantes : <span className="font-extrabold underline">{MOCK_MEDICAL_RECORDS.find(r => r.eleve_id === selectedStudentId)?.allergies}</span>.
-                              Antécédents : {MOCK_MEDICAL_RECORDS.find(r => r.eleve_id === selectedStudentId)?.antecedents}
+                              Cet élève présente les allergies suivantes : <span className="font-extrabold underline">{fichesMedicales.find(r => r.eleve_id === selectedStudentId)?.allergies}</span>.
+                              Antécédents : {fichesMedicales.find(r => r.eleve_id === selectedStudentId)?.antecedents}
                             </p>
                           </div>
                         </div>
@@ -331,7 +352,10 @@ export function Health() {
                 >
                   Annuler
                 </button>
-                <button className="bg-emerald-600 text-white px-8 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20">
+                <button 
+                  onClick={handleAddConsultation}
+                  className="bg-emerald-600 text-white px-8 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
+                >
                   Enregistrer la visite
                 </button>
               </div>

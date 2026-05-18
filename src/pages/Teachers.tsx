@@ -20,9 +20,10 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { Enseignant } from '@/src/types';
-import { MOCK_TEACHERS } from '@/src/lib/constants';
+import { useApp } from '../context/AppContext';
 
 export function Teachers() {
+  const { enseignants } = useApp();
   const [selectedTeacher, setSelectedTeacher] = React.useState<Enseignant | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
@@ -89,7 +90,7 @@ export function Teachers() {
 
       {/* Grid List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {MOCK_TEACHERS.map((teacher) => (
+        {enseignants.map((teacher) => (
           <motion.div
             key={teacher.id}
             whileHover={{ y: -4 }}

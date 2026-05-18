@@ -3,15 +3,15 @@ import { Enseignant, Eleve, FicheMedicale, ConsultationMedicale, Article, StockM
 export const MOCK_TEMPLATES: MessageTemplate[] = [
   {
     id: 1,
-    titre: 'Rappel Scolarité',
+    titre: 'Remerciement Donateurs',
     canal: 'SMS',
-    contenu: 'Cher parent [Nom_Parent], nous vous rappelons que la mensualité de [Nom_Eleve] pour le mois de [Mois] est en attente. Merci de régulariser. Cordialement, Daara Sama.'
+    contenu: 'Cher [Nom_Donateur], nous avons bien reçu votre don de [Montant] CFA. Qu\'Allah vous récompense de la meilleure des manières. Cordialement, Daara Sunu.'
   },
   {
     id: 2,
-    titre: 'Convocation Réunion',
+    titre: 'Lettre aux Parrains',
     canal: 'WhatsApp',
-    contenu: 'Assalamou Aleykoum [Nom_Parent], vous êtes conviés à la réunion des parents d\'élèves le dimanche prochain à 10h. Votre présence est vivement souhaitée.'
+    contenu: 'Assalamou Aleykoum [Nom_Parrain], nous sommes heureux de vous partager les progrès de [Nom_Eleve] ce mois-ci. Il a mémorisé [Hizb] Hizb. Merci pour votre soutien précieux.'
   },
   {
     id: 3,
@@ -24,9 +24,9 @@ export const MOCK_TEMPLATES: MessageTemplate[] = [
 export const MOCK_COMMUNICATION_LOGS: CommunicationLog[] = [
   {
     id: 1,
-    parent_nom: 'Abdou Diouf',
+    parent_nom: 'Moussa Sy',
     telephone: '+221 77 123 45 67',
-    message: 'Cher parent Abdou Diouf, nous vous rappelons que la mensualité de Moustapha pour le mois de Mai est en attente...',
+    message: 'Cher Moussa Sy, nous avons bien reçu votre don de 50 000 CFA. Qu\'Allah vous récompense...',
     date_envoi: '2024-05-15T09:00:00Z',
     statut: 'Distribué'
   },
@@ -182,7 +182,7 @@ export const MOCK_ELEVES: Eleve[] = [
     dernier_verset: 'Sourate Al-Baqarah, Verset 255',
     points_tarbyya: 110,
     statut_pension: 'Interne',
-    statut_financier: 'À jour',
+    statut_prise_en_charge: 'Parrainé',
     statut: 'Actif',
     enseignant_id: 1,
     enseignant_nom: 'Oastaz Oumar DIALLO',
@@ -201,11 +201,51 @@ export const MOCK_ELEVES: Eleve[] = [
     dernier_verset: 'Sourate An-Nas',
     points_tarbyya: 95,
     statut_pension: 'Externe',
-    statut_financier: 'En retard',
+    statut_prise_en_charge: 'En recherche',
     statut: 'Actif',
     enseignant_id: 2,
     enseignant_nom: 'Oustaz Moussa SANE',
     date_inscription: '2024-02-10'
+  }
+];
+
+import { Don, Depense } from './../types';
+
+export const MOCK_DONS: Don[] = [
+  {
+    id: 1,
+    donateur_nom: 'Fondation Al-Khair',
+    montant: 500000,
+    date_don: '2024-05-01T10:00:00Z',
+    type_paiement: 'Transfert',
+    assignation: 'Général',
+    recu_numero: 'REC-2024-001'
+  },
+  {
+    id: 2,
+    donateur_nom: 'Moussa Sy',
+    montant: 50000,
+    date_don: '2024-05-10T14:30:00Z',
+    type_paiement: 'Espèces',
+    assignation: 'Alimentation',
+    recu_numero: 'REC-2024-002'
+  }
+];
+
+export const MOCK_DEPENSES: Depense[] = [
+  {
+    id: 1,
+    libelle: 'Ravitaillement Riz et Huile',
+    categorie: 'Alimentation',
+    montant: 150000,
+    date_depense: '2024-05-05T09:00:00Z',
+  },
+  {
+    id: 2,
+    libelle: 'Salaires des Oustaz - Mai',
+    categorie: 'Salaires',
+    montant: 405000,
+    date_depense: '2024-05-15T16:00:00Z',
   }
 ];
 

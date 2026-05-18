@@ -24,19 +24,20 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { MessageTemplate, CommunicationLog } from '@/src/types';
-import { MOCK_TEMPLATES, MOCK_COMMUNICATION_LOGS, MOCK_ELEVES } from '@/src/lib/constants';
+import { useApp } from '../context/AppContext';
 
 export function Communications() {
+  const { templates, logs, eleves } = useApp();
   const [activeTab, setActiveTab] = React.useState<'send' | 'history'>('send');
   const [isCampaignModalOpen, setIsCampaignModalOpen] = React.useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = React.useState(false);
   const [selectedTemplate, setSelectedTemplate] = React.useState<MessageTemplate | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [targetFilter, setTargetFilter] = React.useState<'all' | 'debtors' | 'internal'>('all');
+  const [targetFilter, setTargetFilter] = React.useState<'all' | 'sponsors' | 'internal'>('all');
 
-  const debtorsCount = MOCK_ELEVES.filter(e => e.statut_financier === 'En retard').length;
+  const sponsorsCount = eleves.filter(e => e.statut_prise_en_charge === 'Parrainé').length;
   
-  const filteredLogs = MOCK_COMMUNICATION_LOGS.filter(log => 
+  const filteredLogs = logs.filter(log => 
     log.parent_nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
     log.telephone.includes(searchQuery)
   );
@@ -51,9 +52,9 @@ export function Communications() {
   };
 
   const getTargetCount = () => {
-    if (targetFilter === 'all') return MOCK_ELEVES.length;
-    if (targetFilter === 'debtors') return debtorsCount;
-    return MOCK_ELEVES.filter(e => e.statut_pension === 'Interne').length;
+    if (targetFilter === 'all') return eleves.length;
+    if (targetFilter === 'sponsors') return sponsorsCount;
+    return eleves.filter(e => e.statut_pension === 'Interne').length;
   };
 
   return (
@@ -119,7 +120,7 @@ export function Communications() {
             <div className="lg:col-span-2 space-y-4 text-black">
               <h2 className="text-lg font-bold text-gray-800">Modèles Rapides</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {MOCK_TEMPLATES.map((template) => (
+                {templates.map((template) => (
                   <motion.div
                     key={template.id}
                     whileHover={{ y: -2 }}
@@ -167,22 +168,22 @@ export function Communications() {
                 </div>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-3 bg-white/10 rounded-2xl">
-                    <span className="text-sm">Retards de paiement</span>
-                    <span className="font-bold bg-white text-blue-600 px-2 py-0.5 rounded-lg text-xs">{debtorsCount}</span>
+                    <span className="text-sm">Élèves parrainés</span>
+                    <span className="font-bold bg-white text-blue-600 px-2 py-0.5 rounded-lg text-xs">{sponsorsCount}</span>
                   </div>
                    <div className="flex items-center justify-between p-3 bg-white/10 rounded-2xl">
-                    <span className="text-sm">Absents du jour</span>
-                    <span className="font-bold bg-white text-blue-600 px-2 py-0.5 rounded-lg text-xs">8</span>
+                    <span className="text-sm">En attente de parrain</span>
+                    <span className="font-bold bg-white text-blue-600 px-2 py-0.5 rounded-lg text-xs">{eleves.length - sponsorsCount}</span>
                   </div>
                 </div>
                 <button 
                   onClick={() => {
-                    setTargetFilter('debtors');
+                    setTargetFilter('sponsors');
                     setIsCampaignModalOpen(true);
                   }}
                   className="w-full mt-6 bg-white text-blue-600 py-3 rounded-xl font-extrabold text-sm hover:bg-blue-50 transition-colors shadow-lg"
                 >
-                  Envoyer Rappels Scolarité
+                  Envoyer Lettre aux Parrains
                 </button>
               </div>
 
@@ -231,7 +232,7 @@ export function Communications() {
                 </button>
               </div>
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {MOCK_TEMPLATES.map(template => (
+                {templates.map(template => (
                   <div key={template.id} className="p-4 rounded-2xl bg-gray-50 border border-gray-100 group relative">
                     <div className="flex items-center justify-between mb-2">
                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{template.canal}</span>
@@ -371,8 +372,8 @@ export function Communications() {
                       onChange={(e) => setTargetFilter(e.target.value as any)}
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 italic"
                     >
-                      <option value="all">Tous les parents ({MOCK_ELEVES.length})</option>
-                      <option value="debtors">Parents en retard ({debtorsCount})</option>
+                      <option value="all">Tous les parents ({eleves.length})</option>
+                      <option value="sponsors">Parrains uniquement ({sponsorsCount})</option>
                       <option value="internal">Internat uniquement</option>
                     </select>
                   </div>
@@ -383,13 +384,13 @@ export function Communications() {
                   <select 
                     value={selectedTemplate?.id || ''}
                     onChange={(e) => {
-                      const t = MOCK_TEMPLATES.find(temp => temp.id === Number(e.target.value));
+                      const t = templates.find(temp => temp.id === Number(e.target.value));
                       setSelectedTemplate(t || null);
                     }}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 italic"
                   >
                     <option value="">Texte Libre (Sans modèle)</option>
-                    {MOCK_TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.titre}</option>)}
+                    {templates.map(t => <option key={t.id} value={t.id}>{t.titre}</option>)}
                   </select>
                 </div>
 

@@ -22,7 +22,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { Eleve, Enseignant } from '@/src/types';
-import { MOCK_ELEVES, MOCK_TEACHERS } from '@/src/lib/constants';
+import { useApp } from '../context/AppContext';
 
 const ProgressBar = ({ value, max = 60, label }: { value: number; max?: number; label?: string }) => {
   const percentage = Math.min(Math.round((value / max) * 100), 100);
@@ -50,6 +50,7 @@ const ProgressBar = ({ value, max = 60, label }: { value: number; max?: number; 
 };
 
 export function Students() {
+  const { eleves, enseignants, updateEleve, addEleve } = useApp();
   const [selectedEleve, setSelectedEleve] = React.useState<Eleve | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [modalMode, setModalMode] = React.useState<'add' | 'edit' | 'view'>('view');
@@ -117,12 +118,12 @@ export function Students() {
                 <th className="px-6 py-4">Matricule</th>
                 <th className="px-6 py-4">Progression (Hizb)</th>
                 <th className="px-6 py-4">Enseignant</th>
-                <th className="px-6 py-4">Finances</th>
+                <th className="px-6 py-4">Prise en Charge</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {MOCK_ELEVES.map((eleve) => (
+              {eleves.map((eleve) => (
                 <motion.tr 
                   key={eleve.id}
                   initial={{ opacity: 0 }}
@@ -154,11 +155,11 @@ export function Students() {
                   <td className="px-6 py-4">
                     <span className={cn(
                       "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                      eleve.statut_financier === 'À jour' 
+                      eleve.statut_prise_en_charge === 'Parrainé' 
                         ? "bg-green-100 text-green-700" 
-                        : "bg-red-100 text-red-700"
+                        : "bg-orange-100 text-orange-700"
                     )}>
-                      {eleve.statut_financier}
+                      {eleve.statut_prise_en_charge}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -246,7 +247,12 @@ export function Students() {
                         <div className="flex flex-wrap gap-4 text-sm text-gray-500">
                           <span className="flex items-center gap-1"><User className="w-4 h-4" /> {selectedEleve.matricule}</span>
                           <span className="flex items-center gap-1"><Home className="w-4 h-4" /> {selectedEleve.statut_pension}</span>
-                          <span className="flex items-center gap-1 font-bold text-green-600"><CreditCard className="w-4 h-4" /> {selectedEleve.statut_financier}</span>
+                          <span className={cn(
+                            "flex items-center gap-1 font-bold",
+                            selectedEleve.statut_prise_en_charge === 'Parrainé' ? "text-green-600" : "text-orange-600"
+                          )}>
+                            <CreditCard className="w-4 h-4" /> {selectedEleve.statut_prise_en_charge}
+                          </span>
                         </div>
                         <ProgressBar value={selectedEleve.niveau_hizb} />
                       </div>
@@ -373,7 +379,7 @@ export function Students() {
                               defaultValue={selectedEleve?.enseignant_id}
                             >
                               <option value="">Sélectionner un Oustaz</option>
-                              {MOCK_TEACHERS.map((teacher) => (
+                              {enseignants.map((teacher) => (
                                 <option key={teacher.id} value={teacher.id}>
                                   Oustaz {teacher.prenom} {teacher.nom}
                                 </option>

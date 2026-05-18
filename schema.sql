@@ -46,25 +46,32 @@ CREATE TABLE IF NOT EXISTS eleves (
     dortoir_id INTEGER,
     lit_numero INTEGER,
     enseignant_id INTEGER,
-    statut_financier TEXT CHECK(statut_financier IN ('À jour', 'En retard')) DEFAULT 'À jour',
+    statut_prise_en_charge TEXT CHECK(statut_prise_en_charge IN ('Parrainé', 'En recherche')) DEFAULT 'En recherche',
     date_inscription DATE DEFAULT CURRENT_DATE,
     statut TEXT CHECK(statut IN ('Actif', 'Inactif', 'Diplômé')) DEFAULT 'Actif',
     FOREIGN KEY (dortoir_id) REFERENCES dortoirs(id),
     FOREIGN KEY (enseignant_id) REFERENCES enseignants(id)
 );
 
--- Table des Paiements
-CREATE TABLE IF NOT EXISTS paiements (
+-- Table des Dons (Entrées)
+CREATE TABLE IF NOT EXISTS dons (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    eleve_id INTEGER,
-    enseignant_id INTEGER, -- Pour les salaires
+    donateur_nom TEXT NOT NULL,
     montant REAL NOT NULL,
-    date_paiement DATETIME DEFAULT CURRENT_TIMESTAMP,
-    type TEXT CHECK(type IN ('Scolarité', 'Inscription', 'Salaire', 'Autre')) NOT NULL,
-    mois_concerne TEXT, -- ex: "Octobre 2023"
-    statut TEXT CHECK(statut IN ('Payé', 'En attente', 'Annulé')) DEFAULT 'Payé',
-    FOREIGN KEY (eleve_id) REFERENCES eleves(id),
-    FOREIGN KEY (enseignant_id) REFERENCES enseignants(id)
+    date_don DATETIME DEFAULT CURRENT_TIMESTAMP,
+    type_paiement TEXT CHECK(type_paiement IN ('Espèces', 'Transfert', 'Nature')) NOT NULL,
+    assignation TEXT, -- ex: "Alimentation", "Fêtes", or null for general
+    recu_numero TEXT UNIQUE
+);
+
+-- Table des Dépenses (Sorties)
+CREATE TABLE IF NOT EXISTS depenses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    libelle TEXT NOT NULL,
+    categorie TEXT CHECK(categorie IN ('Alimentation', 'Salaires', 'Santé', 'Logistique', 'Loyer', 'Autre')) NOT NULL,
+    montant REAL NOT NULL,
+    date_depense DATETIME DEFAULT CURRENT_TIMESTAMP,
+    justificatif_url TEXT
 );
 
 -- Table de l'Inventaire (Articles)

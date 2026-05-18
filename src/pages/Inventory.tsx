@@ -19,18 +19,19 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { Article, StockMovement } from '@/src/types';
-import { MOCK_ARTICLES, MOCK_MOVEMENTS } from '@/src/lib/constants';
+import { useApp } from '../context/AppContext';
 
 export function Inventory() {
+  const { articles, mouvements, addMouvement } = useApp();
   const [activeView, setActiveView] = React.useState<'stock' | 'history'>('stock');
   const [isArticleModalOpen, setIsArticleModalOpen] = React.useState(false);
   const [isMovementModalOpen, setIsMovementModalOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
 
-  const articlesCritiquesCount = MOCK_ARTICLES.filter(a => a.quantite <= a.seuil_alerte).length;
-  const totalArticles = MOCK_ARTICLES.length;
+  const articlesCritiquesCount = articles.filter(a => a.quantite <= a.seuil_alerte).length;
+  const totalArticles = articles.length;
 
-  const filteredArticles = MOCK_ARTICLES.filter(a => 
+  const filteredArticles = articles.filter(a => 
     a.nom.toLowerCase().includes(searchQuery.toLowerCase()) || 
     a.reference.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -258,7 +259,7 @@ export function Inventory() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 italic">
-                  {MOCK_MOVEMENTS.map((mv) => (
+                  {mouvements.map((mv) => (
                     <tr key={mv.id} className="hover:bg-gray-50 transition-colors italic">
                       <td className="px-6 py-4 text-xs text-gray-500 italic">
                         {new Date(mv.date_mouvement).toLocaleString()}
@@ -398,7 +399,7 @@ export function Inventory() {
                   <div className="space-y-2 italic">
                     <label className="text-xs font-bold text-gray-400 uppercase italic">Choisir l'Article</label>
                     <select className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 italic">
-                      {MOCK_ARTICLES.map(a => <option key={a.id} value={a.id}>{a.nom}</option>)}
+                      {articles.map(a => <option key={a.id} value={a.id}>{a.nom}</option>)}
                     </select>
                   </div>
                    <div className="grid grid-cols-2 gap-4 italic">

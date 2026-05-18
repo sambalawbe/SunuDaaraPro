@@ -14,7 +14,7 @@ export interface Eleve {
   dernier_verset?: string;
   points_tarbyya: number;
   statut_pension: 'Interne' | 'Externe';
-  statut_financier: 'À jour' | 'En retard';
+  statut_prise_en_charge: 'Parrainé' | 'En recherche';
   statut: 'Actif' | 'Inactif' | 'Diplômé';
   dortoir_id?: number;
   lit_numero?: number;
@@ -101,11 +101,32 @@ export interface ConsultationMedicale {
   eleve_prenom?: string;
 }
 
+export interface Don {
+  id: number;
+  donateur_nom: string;
+  montant: number;
+  date_don: string;
+  type_paiement: 'Espèces' | 'Transfert' | 'Nature';
+  assignation?: string;
+  recu_numero?: string;
+}
+
+export interface Depense {
+  id: number;
+  libelle: string;
+  categorie: 'Alimentation' | 'Salaires' | 'Santé' | 'Logistique' | 'Loyer' | 'Autre';
+  montant: number;
+  date_depense: string;
+  justificatif_url?: string;
+}
+
 export interface Stats {
   totalEleves: number;
   totalEnseignants: number;
   totalHafiz: number;
-  caisseMensuelle: number;
+  soldeCaisse: number;
+  donsMois: number;
+  depensesMois: number;
 }
 
 export interface ChartData {
