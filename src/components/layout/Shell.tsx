@@ -14,10 +14,12 @@ import {
   Bell,
   Search,
   ChevronDown,
-  LogOut
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
+import { useApp } from '../../context/AppContext';
 
 interface SidebarItemProps {
   key?: string | number;
@@ -59,6 +61,7 @@ interface ShellProps {
 }
 
 export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
+  const { canAccess, currentUser, logout } = useApp();
   const [collapsed, setCollapsed] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
@@ -71,7 +74,8 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
     { id: 'logement', label: 'Hébergement', icon: Bed },
     { id: 'sante', label: 'Santé', icon: Stethoscope },
     { id: 'communications', label: 'Communications', icon: MessageSquare },
-  ];
+    { id: 'parametres', label: 'Configuration', icon: ShieldCheck },
+  ].filter(item => canAccess(item.id));
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
@@ -83,8 +87,8 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
         <div className="p-4 flex items-center justify-between border-b border-gray-100">
           {!collapsed && (
             <div className="flex items-center gap-2 overflow-hidden">
-              <div className="w-8 h-8 bg-green-700 rounded flex items-center justify-center shrink-0">
-                <span className="text-white font-bold text-lg">S</span>
+              <div className="w-10 h-10 rounded flex items-center justify-center shrink-0">
+                <img src="/src/public/LOGO INTERNAT.png" alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
               </div>
               <span className="font-bold text-lg text-gray-800 whitespace-nowrap">Sunu Daara Pro</span>
             </div>
@@ -111,7 +115,10 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
         </nav>
 
         <div className={cn("p-4 border-t border-gray-100", collapsed && "flex justify-center")}>
-          <button className="flex items-center w-full px-4 py-2 text-sm text-gray-600 hover:bg-red-50 hover:text-red-700 rounded-lg group transition-colors">
+          <button 
+            onClick={() => logout()}
+            className="flex items-center w-full px-4 py-2 text-sm text-gray-600 hover:bg-red-50 hover:text-red-700 rounded-lg group transition-colors"
+          >
             <LogOut className="w-5 h-5 text-gray-400 group-hover:text-red-700" />
             {!collapsed && <span className="ml-3">Déconnexion</span>}
           </button>
@@ -142,15 +149,18 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
             </button>
             <div className="h-8 w-px bg-gray-200 mx-1 hidden sm:block" />
-            <button className="flex items-center gap-3 p-1 pl-1 pr-2 hover:bg-gray-50 rounded-full transition-all group">
-              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-semibold border border-green-200">
-                AD
+            <button 
+              onClick={() => logout()}
+              className="flex items-center gap-3 p-1 pl-1 pr-2 hover:bg-red-50 rounded-full transition-all group"
+            >
+              <div className="w-8 h-8 rounded-full bg-green-100 group-hover:bg-red-100 flex items-center justify-center text-green-700 group-hover:text-red-700 font-semibold border border-green-200 group-hover:border-red-200">
+                {currentUser?.prenom[0]}{currentUser?.nom[0]}
               </div>
               <div className="hidden md:block text-left">
-                <p className="text-sm font-semibold text-gray-700 leading-tight">Admin Daara</p>
-                <p className="text-xs text-gray-400">Directeur</p>
+                <p className="text-sm font-semibold text-gray-700 leading-tight group-hover:text-red-700 transition-colors">{currentUser?.prenom} {currentUser?.nom}</p>
+                <p className="text-xs text-gray-400 capitalize">{currentUser?.role.toLowerCase().replace('_', ' ')}</p>
               </div>
-              <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-green-500" />
+              <LogOut className="w-4 h-4 text-gray-400 group-hover:text-red-500" />
             </button>
           </div>
         </header>
@@ -183,8 +193,8 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
             >
                <div className="p-4 flex items-center justify-between border-b border-gray-100">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-green-700 rounded flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">S</span>
+                  <div className="w-10 h-10 rounded flex items-center justify-center">
+                    <img src="/src/public/LOGO INTERNAT.png" alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                   </div>
                   <span className="font-bold text-lg text-gray-800">Sunu Daara Pro</span>
                 </div>
@@ -206,6 +216,15 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
                   />
                 ))}
               </nav>
+              <div className="p-4 border-t border-gray-100">
+                <button 
+                  onClick={() => logout()}
+                  className="flex items-center w-full px-4 py-3 text-sm text-gray-600 hover:bg-red-50 hover:text-red-700 rounded-lg group transition-colors"
+                >
+                  <LogOut className="w-5 h-5 text-gray-400 group-hover:text-red-700" />
+                  <span className="ml-3 font-semibold">Déconnexion</span>
+                </button>
+              </div>
             </motion.aside>
           </>
         )}

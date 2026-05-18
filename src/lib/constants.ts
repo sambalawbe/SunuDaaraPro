@@ -1,4 +1,4 @@
-import { Enseignant, Eleve, FicheMedicale, ConsultationMedicale, Article, StockMovement, MessageTemplate, CommunicationLog } from '@/src/types';
+import { Enseignant, Eleve, FicheMedicale, ConsultationMedicale, Article, StockMovement, MessageTemplate, CommunicationLog, Don, Depense, Utilisateur, LogActivite } from '@/src/types';
 
 export const MOCK_TEMPLATES: MessageTemplate[] = [
   {
@@ -209,8 +209,6 @@ export const MOCK_ELEVES: Eleve[] = [
   }
 ];
 
-import { Don, Depense } from './../types';
-
 export const MOCK_DONS: Don[] = [
   {
     id: 1,
@@ -246,6 +244,72 @@ export const MOCK_DEPENSES: Depense[] = [
     categorie: 'Salaires',
     montant: 405000,
     date_depense: '2024-05-15T16:00:00Z',
+  }
+];
+
+export const MOCK_USERS: Utilisateur[] = [
+  {
+    id: 1,
+    nom: 'Sow',
+    prenom: 'Moussa',
+    email: 'admin@sunudaara.sn',
+    role: 'SUPER_ADMIN',
+    statut: 'Actif',
+    date_creation: '2024-01-01T08:00:00Z'
+  },
+  {
+    id: 2,
+    nom: 'Diop',
+    prenom: 'Oumar',
+    email: 'o.diop@sunudaara.sn',
+    role: 'INTENDANT',
+    statut: 'Actif',
+    date_creation: '2024-02-15T10:00:00Z'
+  },
+  {
+    id: 3,
+    nom: 'Fall',
+    prenom: 'Fatou',
+    email: 'f.fall@sunudaara.sn',
+    role: 'MEDECIN',
+    statut: 'Actif',
+    date_creation: '2024-03-10T09:00:00Z'
+  },
+  {
+    id: 4,
+    nom: 'Diallo',
+    prenom: 'Ibrahima',
+    email: 'i.diallo@sunudaara.sn',
+    role: 'ENSEIGNANT',
+    statut: 'Actif',
+    date_creation: '2024-03-20T11:00:00Z'
+  }
+];
+
+export const MOCK_ACTIVITY_LOGS: LogActivite[] = [
+  {
+    id: 1,
+    utilisateur_id: 1,
+    utilisateur_nom: 'Moussa Sow',
+    action: 'A enregistré un don de 500 000 CFA',
+    date_heure: '2024-05-18T09:30:00Z',
+    adresse_ip: '192.168.1.10'
+  },
+  {
+    id: 2,
+    utilisateur_id: 2,
+    utilisateur_nom: 'Oumar Diop',
+    action: 'A mis à jour le stock de riz (+50 sacs)',
+    date_heure: '2024-05-18T08:15:00Z',
+    adresse_ip: '192.168.1.15'
+  },
+  {
+    id: 3,
+    utilisateur_id: 1,
+    utilisateur_nom: 'Moussa Sow',
+    action: 'A créé un nouveau compte utilisateur (Fatou Fall)',
+    date_heure: '2024-05-17T14:20:00Z',
+    adresse_ip: '192.168.1.10'
   }
 ];
 

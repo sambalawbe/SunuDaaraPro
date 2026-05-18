@@ -24,11 +24,15 @@ import { ConsultationMedicale, FicheMedicale, Eleve } from '@/src/types';
 import { useApp } from '../context/AppContext';
 
 export function Health() {
-  const { eleves, consultations, fichesMedicales, addConsultation } = useApp();
+  const { eleves, consultations, fichesMedicales, addConsultation, updateFicheMedicale } = useApp();
   const [selectedStudentId, setSelectedStudentId] = React.useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
+  const [isEditingRecord, setIsEditingRecord] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
+  
+  // State for editing form
+  const [editForm, setEditForm] = React.useState<FicheMedicale | null>(null);
   
   // Stats
   const totalConsultationsToday = consultations.filter(c => {
@@ -98,6 +102,22 @@ export function Health() {
   const handleOpenDrawer = (studentId: number) => {
     setSelectedStudentId(studentId);
     setIsDrawerOpen(true);
+    setIsEditingRecord(false);
+  };
+
+  const handleStartEdit = () => {
+    if (selectedMedicalRecord) {
+      setEditForm({ ...selectedMedicalRecord });
+      setIsEditingRecord(true);
+    }
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editForm) {
+      updateFicheMedicale(editForm);
+      setIsEditingRecord(false);
+    }
   };
 
   return (
@@ -390,81 +410,183 @@ export function Health() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-8 space-y-8 scrollbar-hide text-black">
-                {/* Student Info */}
-                <div className="flex items-center gap-4 p-4 bg-emerald-50 rounded-2xl">
-                  <div className="w-16 h-16 rounded-2xl bg-emerald-600 flex items-center justify-center text-white text-xl font-bold shadow-md">
-                    {selectedStudent.prenom[0]}{selectedStudent.nom[0]}
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">{selectedStudent.prenom} {selectedStudent.nom}</h3>
-                    <p className="text-xs text-gray-500 font-medium">Matricule: {selectedStudent.matricule}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="px-2 py-0.5 rounded-full bg-white border border-emerald-200 text-[10px] font-bold text-emerald-700">
-                        {selectedMedicalRecord?.groupe_sanguin || 'N/A'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Vitals Summary */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-gray-50 rounded-xl space-y-1">
-                    <p className="text-[10px] uppercase font-bold text-gray-400">Allergies</p>
-                    <p className={cn(
-                      "text-sm font-bold",
-                      selectedMedicalRecord?.allergies !== 'Aucune' ? "text-red-600" : "text-emerald-600"
-                    )}>
-                      {selectedMedicalRecord?.allergies || 'Non renseigné'}
-                    </p>
-                  </div>
-                  <div className="p-4 bg-gray-50 rounded-xl space-y-1">
-                    <p className="text-[10px] uppercase font-bold text-gray-400">Contact Urgence</p>
-                    <p className="text-sm font-bold text-gray-800">{selectedMedicalRecord?.contact_urgence_nom || 'Non renseigné'}</p>
-                    <p className="text-[10px] text-gray-500">{selectedMedicalRecord?.contact_urgence_tel || ''}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
-                    <History className="w-5 h-5 text-gray-400" />
-                    <h4 className="font-bold text-gray-800">Historique des Consultations</h4>
-                  </div>
-                  <div className="space-y-4">
-                    {selectedStudentConsultations.length > 0 ? (
-                      selectedStudentConsultations.map((c) => (
-                        <div key={c.id} className="relative pl-6 border-l-2 border-emerald-100 py-1 space-y-2">
-                          <div className="absolute -left-[9px] top-2 w-4 h-4 rounded-full bg-emerald-100 border-2 border-emerald-500" />
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-gray-400">{new Date(c.date_consultation).toLocaleDateString()}</span>
-                            <StatusBadge status={c.statut_eleve} />
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-gray-800 italic">{c.diagnostic}</p>
-                            <p className="text-xs text-gray-500 mt-1 italic leading-relaxed">
-                              Symptômes: {c.symptomes}
-                            </p>
-                            <div className="flex items-start gap-2 mt-2 bg-gray-50 p-2 rounded-lg italic">
-                              <Pill className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5 italic" />
-                              <p className="text-[11px] text-gray-600 italic">Traitement: {c.traitement}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8">
-                        <Activity className="w-12 h-12 text-gray-200 mx-auto mb-2" />
-                        <p className="text-sm text-gray-400 italic">Aucune consultation enregistrée.</p>
+                {isEditingRecord && editForm ? (
+                  <form onSubmit={handleSaveEdit} className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase">Groupe Sanguin</label>
+                        <select 
+                          value={editForm.groupe_sanguin}
+                          onChange={(e) => setEditForm({ ...editForm, groupe_sanguin: e.target.value as any })}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none"
+                        >
+                          <option value="A+">A+</option>
+                          <option value="A-">A-</option>
+                          <option value="B+">B+</option>
+                          <option value="B-">B-</option>
+                          <option value="AB+">AB+</option>
+                          <option value="AB-">AB-</option>
+                          <option value="O+">O+</option>
+                          <option value="O-">O-</option>
+                        </select>
                       </div>
-                    )}
-                  </div>
-                </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase">Poids (kg)</label>
+                        <input 
+                          type="number"
+                          value={editForm.poids || ''}
+                          onChange={(e) => setEditForm({ ...editForm, poids: Number(e.target.value) })}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase">Allergies</label>
+                      <textarea 
+                        value={editForm.allergies}
+                        onChange={(e) => setEditForm({ ...editForm, allergies: e.target.value })}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none min-h-[80px]"
+                        placeholder="Ex: Pénicilline, Arachides..."
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase">Antécédents Médicaux</label>
+                      <textarea 
+                        value={editForm.antecedents || ''}
+                        onChange={(e) => setEditForm({ ...editForm, antecedents: e.target.value })}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none min-h-[80px]"
+                        placeholder="Ex: Asthme, Chirurgie..."
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase">Contact Urgence (Nom)</label>
+                        <input 
+                          type="text"
+                          value={editForm.contact_urgence_nom}
+                          onChange={(e) => setEditForm({ ...editForm, contact_urgence_nom: e.target.value })}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase">Contact Urgence (Tél)</label>
+                        <input 
+                          type="text"
+                          value={editForm.contact_urgence_tel}
+                          onChange={(e) => setEditForm({ ...editForm, contact_urgence_tel: e.target.value })}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-4 flex gap-3">
+                      <button 
+                        type="button"
+                        onClick={() => setIsEditingRecord(false)}
+                        className="flex-1 py-3 text-gray-500 font-bold"
+                      >
+                        Annuler
+                      </button>
+                      <button 
+                        type="submit"
+                        className="flex-1 bg-emerald-600 text-white rounded-xl py-3 font-bold shadow-lg shadow-emerald-600/20"
+                      >
+                        Enregistrer
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    {/* Student Info */}
+                    <div className="flex items-center gap-4 p-4 bg-emerald-50 rounded-2xl">
+                      <div className="w-16 h-16 rounded-2xl bg-emerald-600 flex items-center justify-center text-white text-xl font-bold shadow-md">
+                        {selectedStudent.prenom[0]}{selectedStudent.nom[0]}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">{selectedStudent.prenom} {selectedStudent.nom}</h3>
+                        <p className="text-xs text-gray-500 font-medium">Matricule: {selectedStudent.matricule}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="px-2 py-0.5 rounded-full bg-white border border-emerald-200 text-[10px] font-bold text-emerald-700">
+                            {selectedMedicalRecord?.groupe_sanguin || 'N/A'}
+                          </span>
+                          {selectedMedicalRecord?.poids && (
+                            <span className="px-2 py-0.5 rounded-full bg-white border border-blue-200 text-[10px] font-bold text-blue-700">
+                              {selectedMedicalRecord.poids} kg
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Vitals Summary */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-gray-50 rounded-xl space-y-1">
+                        <p className="text-[10px] uppercase font-bold text-gray-400">Allergies</p>
+                        <p className={cn(
+                          "text-sm font-bold",
+                          selectedMedicalRecord?.allergies !== 'Aucune' ? "text-red-600" : "text-emerald-600"
+                        )}>
+                          {selectedMedicalRecord?.allergies || 'Non renseigné'}
+                        </p>
+                      </div>
+                      <div className="p-4 bg-gray-50 rounded-xl space-y-1">
+                        <p className="text-[10px] uppercase font-bold text-gray-400">Contact Urgence</p>
+                        <p className="text-sm font-bold text-gray-800">{selectedMedicalRecord?.contact_urgence_nom || 'Non renseigné'}</p>
+                        <p className="text-[10px] text-gray-500">{selectedMedicalRecord?.contact_urgence_tel || ''}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+                        <History className="w-5 h-5 text-gray-400" />
+                        <h4 className="font-bold text-gray-800">Historique des Consultations</h4>
+                      </div>
+                      <div className="space-y-4">
+                        {selectedStudentConsultations.length > 0 ? (
+                          selectedStudentConsultations.map((c) => (
+                            <div key={c.id} className="relative pl-6 border-l-2 border-emerald-100 py-1 space-y-2">
+                              <div className="absolute -left-[9px] top-2 w-4 h-4 rounded-full bg-emerald-100 border-2 border-emerald-500" />
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-gray-400">{new Date(c.date_consultation).toLocaleDateString()}</span>
+                                <StatusBadge status={c.statut_eleve} />
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-gray-800 italic">{c.diagnostic}</p>
+                                <p className="text-xs text-gray-500 mt-1 italic leading-relaxed">
+                                  Symptômes: {c.symptomes}
+                                </p>
+                                <div className="flex items-start gap-2 mt-2 bg-gray-50 p-2 rounded-lg italic">
+                                  <Pill className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5 italic" />
+                                  <p className="text-[11px] text-gray-600 italic">Traitement: {c.traitement}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-8">
+                            <Activity className="w-12 h-12 text-gray-200 mx-auto mb-2" />
+                            <p className="text-sm text-gray-400 italic">Aucune consultation enregistrée.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
-              <div className="p-6 border-t border-gray-100 bg-gray-50 shrink-0">
-                <button className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/20">
-                   Modifier la fiche de base
-                </button>
-              </div>
+              {!isEditingRecord && (
+                <div className="p-6 border-t border-gray-100 bg-gray-50 shrink-0">
+                  <button 
+                    onClick={handleStartEdit}
+                    className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/20"
+                  >
+                    Modifier la fiche de base
+                  </button>
+                </div>
+              )}
             </motion.div>
           </>
         )}

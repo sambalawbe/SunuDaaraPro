@@ -12,28 +12,44 @@ import { Health } from './pages/Health';
 import { Inventory } from './pages/Inventory';
 import { Communications } from './pages/Communications';
 import { Finances } from './pages/Finances';
-import { AppProvider } from './context/AppContext';
+import { AdminSettings } from './pages/AdminSettings';
+import { Login } from './pages/Login';
+import { AppProvider, useApp } from './context/AppContext';
 
-export default function App() {
+function AppContent() {
   const [activeTab, setActiveTab] = React.useState('dashboard');
+  const { isAuthenticated } = useApp();
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
 
   return (
-    <AppProvider>
-      <Shell activeTab={activeTab} setActiveTab={setActiveTab}>
+    <Shell activeTab={activeTab} setActiveTab={setActiveTab}>
+      <div className="p-4 md:p-8 h-full">
         {activeTab === 'dashboard' && <Dashboard />}
         {activeTab === 'eleves' && <Students />}
         {activeTab === 'enseignants' && <Teachers />}
         {activeTab === 'finances' && <Finances />}
+        {activeTab === 'parametres' && <AdminSettings />}
         {activeTab === 'sante' && <Health />}
         {activeTab === 'logistique' && <Inventory />}
         {activeTab === 'communications' && <Communications />}
-        {activeTab !== 'dashboard' && activeTab !== 'eleves' && activeTab !== 'enseignants' && activeTab !== 'finances' && activeTab !== 'sante' && activeTab !== 'logistique' && activeTab !== 'communications' && (
+        {activeTab !== 'dashboard' && activeTab !== 'eleves' && activeTab !== 'enseignants' && activeTab !== 'finances' && activeTab !== 'parametres' && activeTab !== 'sante' && activeTab !== 'logistique' && activeTab !== 'communications' && (
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
              <h2 className="text-xl font-bold">Module en cours de développement</h2>
              <p>Le module {activeTab} sera bientôt disponible.</p>
           </div>
         )}
-      </Shell>
+      </div>
+    </Shell>
+  );
+}
+
+export default function App() {
+  return (
+    <AppProvider>
+      <AppContent />
     </AppProvider>
   );
 }

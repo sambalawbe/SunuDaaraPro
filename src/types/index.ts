@@ -82,6 +82,7 @@ export interface CommunicationLog {
 export interface FicheMedicale {
   eleve_id: number;
   groupe_sanguin?: string;
+  poids?: number;
   allergies?: string;
   antecedents?: string;
   contact_urgence_nom?: string;
@@ -118,6 +119,27 @@ export interface Depense {
   montant: number;
   date_depense: string;
   justificatif_url?: string;
+}
+
+export type UserRole = 'SUPER_ADMIN' | 'INTENDANT' | 'MEDECIN' | 'ENSEIGNANT';
+
+export interface Utilisateur {
+  id: number;
+  nom: string;
+  prenom: string;
+  email: string;
+  role: UserRole;
+  statut: 'Actif' | 'Suspendu';
+  date_creation: string;
+}
+
+export interface LogActivite {
+  id: number;
+  utilisateur_id: number;
+  utilisateur_nom: string;
+  action: string;
+  date_heure: string;
+  adresse_ip?: string;
 }
 
 export interface Stats {
