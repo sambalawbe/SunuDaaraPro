@@ -56,6 +56,69 @@ export function Finances() {
     montant: ''
   });
 
+  const [donForm, setDonForm] = React.useState({
+    donateur_nom: '',
+    montant: '',
+    type_paiement: 'Espèces' as 'Espèces' | 'Transfert' | 'Nature',
+    assignation: ''
+  });
+
+  const [depenseForm, setDepenseForm] = React.useState({
+    libelle: '',
+    montant: '',
+    categorie: 'Alimentation' as 'Alimentation' | 'Salaires' | 'Santé' | 'Logistique' | 'Loyer' | 'Autre',
+    justificatif_url: ''
+  });
+
+  const handleDonSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!donForm.donateur_nom || !donForm.montant) {
+      alert("Veuillez remplir tous les champs obligatoires.");
+      return;
+    }
+    const payload: Don = {
+      id: 0,
+      donateur_nom: donForm.donateur_nom,
+      montant: Number(donForm.montant),
+      type_paiement: donForm.type_paiement,
+      assignation: donForm.assignation || undefined,
+      date_don: new Date().toISOString(),
+      recu_numero: `REC-${Date.now().toString().slice(-4)}`
+    };
+    await addDon(payload);
+    setIsDonModalOpen(false);
+    setDonForm({
+      donateur_nom: '',
+      montant: '',
+      type_paiement: 'Espèces',
+      assignation: ''
+    });
+  };
+
+  const handleDepenseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!depenseForm.libelle || !depenseForm.montant) {
+      alert("Veuillez remplir tous les champs obligatoires.");
+      return;
+    }
+    const payload: Depense = {
+      id: 0,
+      libelle: depenseForm.libelle,
+      montant: Number(depenseForm.montant),
+      categorie: depenseForm.categorie,
+      date_depense: new Date().toISOString(),
+      justificatif_url: depenseForm.justificatif_url || undefined
+    };
+    await addDepense(payload);
+    setIsDepenseModalOpen(false);
+    setDepenseForm({
+      libelle: '',
+      montant: '',
+      categorie: 'Alimentation',
+      justificatif_url: ''
+    });
+  };
+
   // Handlers for payroll form
   const handleRoleChange = (role: string) => {
     if (role === 'Enseignant') {
@@ -497,32 +560,50 @@ export function Finances() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsDonModalOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl p-8">
               <h2 className="text-2xl font-bold mb-6 text-black">Enregistrer un Don</h2>
-              <form className="space-y-4 text-black" onSubmit={(e) => {
-                e.preventDefault();
-                // Simulation
-                setIsDonModalOpen(false);
-              }}>
+              <form className="space-y-4 text-black" onSubmit={handleDonSubmit}>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase">Nom du Donateur</label>
-                  <input type="text" required className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none" />
+                  <input 
+                    type="text" 
+                    required 
+                    value={donForm.donateur_nom} 
+                    onChange={(e) => setDonForm(prev => ({ ...prev, donateur_nom: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none" 
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase">Montant (CFA)</label>
-                    <input type="number" required className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none" />
+                    <input 
+                      type="number" 
+                      required 
+                      value={donForm.montant} 
+                      onChange={(e) => setDonForm(prev => ({ ...prev, montant: e.target.value }))}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none" 
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase">Type</label>
-                    <select className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none">
-                      <option>Espèces</option>
-                      <option>Transfert</option>
-                      <option>Nature</option>
+                    <select 
+                      value={donForm.type_paiement} 
+                      onChange={(e) => setDonForm(prev => ({ ...prev, type_paiement: e.target.value as any }))}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none"
+                    >
+                      <option value="Espèces">Espèces</option>
+                      <option value="Transfert">Transfert</option>
+                      <option value="Nature">Nature</option>
                     </select>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase">Assignation (Optionnel)</label>
-                  <input type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none" placeholder="Ex: Alimentation, Médicaments..." />
+                  <input 
+                    type="text" 
+                    value={donForm.assignation} 
+                    onChange={(e) => setDonForm(prev => ({ ...prev, assignation: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none" 
+                    placeholder="Ex: Alimentation, Médicaments..." 
+                  />
                 </div>
                 <div className="pt-4 flex gap-3">
                   <button type="button" onClick={() => setIsDonModalOpen(false)} className="flex-1 py-3 text-gray-500 font-bold">Annuler</button>
@@ -541,27 +622,41 @@ export function Finances() {
              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsDepenseModalOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl p-8">
                 <h2 className="text-2xl font-bold mb-6 text-black">Enregistrer une Dépense</h2>
-                <form className="space-y-4 text-black" onSubmit={(e) => {
-                  e.preventDefault();
-                  setIsDepenseModalOpen(false);
-                }}>
+                <form className="space-y-4 text-black" onSubmit={handleDepenseSubmit}>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase">Libellé / Objet</label>
-                    <input type="text" required className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none" />
+                    <input 
+                      type="text" 
+                      required 
+                      value={depenseForm.libelle} 
+                      onChange={(e) => setDepenseForm(prev => ({ ...prev, libelle: e.target.value }))}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none" 
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-gray-400 uppercase">Montant (CFA)</label>
-                      <input type="number" required className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none" />
+                      <input 
+                        type="number" 
+                        required 
+                        value={depenseForm.montant} 
+                        onChange={(e) => setDepenseForm(prev => ({ ...prev, montant: e.target.value }))}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none" 
+                      />
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-gray-400 uppercase">Catégorie</label>
-                      <select className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none">
-                        <option>Alimentation</option>
-                        <option>Salaires</option>
-                        <option>Santé</option>
-                        <option>Logistique</option>
-                        <option>Autre</option>
+                      <select 
+                        value={depenseForm.categorie} 
+                        onChange={(e) => setDepenseForm(prev => ({ ...prev, categorie: e.target.value as any }))}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none"
+                      >
+                        <option value="Alimentation">Alimentation</option>
+                        <option value="Salaires">Salaires</option>
+                        <option value="Santé">Santé</option>
+                        <option value="Logistique">Logistique</option>
+                        <option value="Loyer">Loyer</option>
+                        <option value="Autre">Autre</option>
                       </select>
                     </div>
                   </div>
