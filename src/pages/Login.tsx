@@ -16,14 +16,18 @@ export function Login() {
     setIsLoading(true);
     setError('');
 
-    // Petite simulation de délai réseau
-    setTimeout(() => {
-      const success = login(email, password);
+    try {
+      // Petite simulation de délai réseau
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      const success = await login(email, password);
       if (!success) {
         setError('Email ou mot de passe incorrect. Veuillez réessayer.');
-        setIsLoading(false);
       }
-    }, 800);
+    } catch (err) {
+      setError('Une erreur est survenue lors de la connexion.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

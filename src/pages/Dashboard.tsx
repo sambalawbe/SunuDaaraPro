@@ -54,38 +54,45 @@ interface StatCardProps {
   className?: string;
 }
 
-const StatCard = ({ title, value, icon: Icon, trend, className }: StatCardProps) => (
-  <motion.div
-    whileHover={{ y: -5 }}
-    className={cn("bg-white p-6 rounded-2xl border border-gray-100 shadow-sm transition-shadow hover:shadow-md", className)}
-  >
-    <div className="flex justify-between items-start">
-      <div>
-        <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
-        <h3 className="text-3xl font-bold text-gray-800">{value}</h3>
+const StatCard = ({ title, value, icon: Icon, trend, className }: StatCardProps) => {
+  const { t } = useApp();
+  return (
+    <motion.div
+      whileHover={{ y: -5 }}
+      className={cn("bg-white p-6 rounded-2xl border border-gray-100 shadow-sm transition-shadow hover:shadow-md", className)}
+    >
+      <div className="flex justify-between items-start">
+        <div>
+          <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
+          <h3 className="text-3xl font-bold text-gray-800">{value}</h3>
+        </div>
+        <div className="p-3 bg-green-50 rounded-xl text-green-600">
+          <Icon className="w-6 h-6" />
+        </div>
       </div>
-      <div className="p-3 bg-green-50 rounded-xl text-green-600">
-        <Icon className="w-6 h-6" />
-      </div>
-    </div>
-    {trend && (
-      <div className="mt-4 flex items-center gap-1">
-        {trend.isUp ? (
-          <ArrowUpRight className="w-4 h-4 text-green-500" />
-        ) : (
-          <ArrowDownRight className="w-4 h-4 text-red-500" />
-        )}
-        <span className={cn("text-sm font-medium", trend.isUp ? "text-green-500" : "text-red-500")}>
-          {trend.value}%
-        </span>
-        <span className="text-xs text-gray-400 ml-1">vs mois dernier</span>
-      </div>
-    )}
-  </motion.div>
-);
+      {trend && (
+        <div className="mt-4 flex items-center gap-1">
+          {trend.isUp ? (
+            <ArrowUpRight className="w-4 h-4 text-green-500" />
+          ) : (
+            <ArrowDownRight className="w-4 h-4 text-red-500" />
+          )}
+          <span className={cn("text-sm font-medium", trend.isUp ? "text-green-500" : "text-red-500")}>
+            {trend.value}%
+          </span>
+          <span className="text-xs text-gray-400 ml-1">{t('vs_last_month')}</span>
+        </div>
+      )}
+    </motion.div>
+  );
+};
 
-export function Dashboard() {
-  const { eleves, enseignants, articles, consultations, mouvements, logs, dons, depenses } = useApp();
+interface DashboardProps {
+  onNavigate?: (tabId: string) => void;
+}
+
+export function Dashboard({ onNavigate }: DashboardProps) {
+  const { eleves, enseignants, articles, consultations, mouvements, logs, dons, depenses, t } = useApp();
 
   // Calcul des statistiques dynamiques
   const totalEleves = eleves.length;
@@ -107,6 +114,15 @@ export function Dashboard() {
 
   // Seuil critique fund alert (ex: less than 200,000 CFA for demonstration)
   const isBudgetLow = soldeCaisse < 200000;
+
+  const handleNavigate = (tabId: string) => {
+    console.log('[Dashboard] handleNavigate called with:', tabId, 'onNavigate prop exists:', !!onNavigate);
+    if (onNavigate) {
+      onNavigate(tabId);
+    } else {
+      console.warn('[Dashboard] Warning: onNavigate prop is not defined in Dashboard component!');
+    }
+  };
 
   // Distribution par niveau pour le graphique
   const niveaux = ['Débutant', 'Intermédiaire', 'Hafiz'];
@@ -156,16 +172,19 @@ export function Dashboard() {
       {/* Header Section */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Tableau de Bord Social</h1>
-          <p className="text-gray-500">Gestion de l'internat solidaire et de la trésorerie.</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('dashboard_title')}</h1>
+          <p className="text-gray-500">{t('dashboard_subtitle')}</p>
         </div>
         <div className="flex gap-2 text-black">
            <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-            Exporter Rapport
+            {t('export_report')}
           </button>
-          <button className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 transition-colors flex items-center gap-2">
+          <button 
+            onClick={() => handleNavigate('finances')}
+            className="px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 transition-colors flex items-center gap-2"
+          >
             <TrendingUp className="w-4 h-4" />
-            Nouveau Don
+            {t('new_don')}
           </button>
         </div>
       </header>
@@ -179,36 +198,41 @@ export function Dashboard() {
         >
           <AlertCircle className="w-6 h-6 shrink-0" />
           <div className="flex-1">
-            <p className="text-sm font-bold">Alerte Trésorerie Critique</p>
-            <p className="text-xs opacity-80">Le solde actuel est insuffisant pour couvrir les besoins alimentaires du mois prochain.</p>
+            <p className="text-sm font-bold">{t('treasury_alert_title')}</p>
+            <p className="text-xs opacity-80">{t('treasury_alert_desc')}</p>
           </div>
-          <button className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-600/20">Voir Détails</button>
+          <button 
+            onClick={() => handleNavigate('finances')}
+            className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-600/20 hover:bg-red-700 transition-colors"
+          >
+            {t('view_details')}
+          </button>
         </motion.div>
       )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
-          title="Solde de Caisse" 
+          title={t('stats_treasury')} 
           value={`${soldeCaisse.toLocaleString()} CFA`} 
           icon={Wallet} 
           trend={{ value: 12, isUp: true }} 
           className={soldeCaisse < 100000 ? "border-red-100 bg-red-50/10" : ""}
         />
         <StatCard 
-          title="Dons (Mois)" 
+          title={t('stats_dons_mois')} 
           value={`${donsMois.toLocaleString()} CFA`} 
           icon={TrendingUp} 
           trend={{ value: 8, isUp: true }} 
         />
         <StatCard 
-          title="Dépenses (Mois)" 
+          title={t('stats_depenses_mois')} 
           value={`${depensesMois.toLocaleString()} CFA`} 
           icon={TrendingDown} 
           trend={{ value: 5, isUp: false }} 
         />
         <StatCard 
-          title="Stock Critique" 
+          title={t('stats_low_stock')} 
           value={stockCritiqueCount} 
           icon={AlertCircle} 
           className={cn(stockCritiqueCount > 0 ? "border-orange-100 bg-orange-50/10 text-orange-600" : "")}
@@ -219,7 +243,7 @@ export function Dashboard() {
         {/* Main Chart - Distribution par Niveau */}
         <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-8">
-            <h3 className="font-bold text-gray-800">Distribution par Niveau</h3>
+            <h3 className="font-bold text-gray-800">{t('distribution_level')}</h3>
             <select className="text-xs border-gray-200 rounded-md bg-gray-50 p-1 outline-none">
               <option>Cette année</option>
               <option>Mois dernier</option>
@@ -256,7 +280,7 @@ export function Dashboard() {
 
         {/* Small Chart - Répartition Hafiz */}
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <h3 className="font-bold text-gray-800 mb-8">Répartition Hafiz / Niveau</h3>
+          <h3 className="font-bold text-gray-800 mb-8">{t('hafiz_distribution')}</h3>
           <div className="h-64 w-full">
              <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -295,8 +319,13 @@ export function Dashboard() {
         {/* Recent Activities List */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden text-black">
           <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-bold text-gray-800">Activités Récentes</h3>
-            <button className="text-sm text-green-600 font-medium hover:underline">Voir tout</button>
+            <h3 className="font-bold text-gray-800">{t('recent_activities')}</h3>
+            <button 
+              onClick={() => handleNavigate('finances')}
+              className="text-sm text-green-600 font-medium hover:underline"
+            >
+              {t('see_all')}
+            </button>
           </div>
           <div className="divide-y divide-gray-50">
             {recentActivities.map((activity) => (
@@ -318,15 +347,15 @@ export function Dashboard() {
         {/* Finance Evolution */}
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-8">
-            <h3 className="font-bold text-gray-800">Évolution de la Caisse</h3>
+            <h3 className="font-bold text-gray-800">{t('finance_evolution')}</h3>
             <div className="flex gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-green-500" />
-                <span className="text-xs text-gray-500">Entrées</span>
+                <span className="text-xs text-gray-500">{t('entries')}</span>
               </div>
                <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-400" />
-                <span className="text-xs text-gray-500">Sorties</span>
+                <span className="text-xs text-gray-500">{t('exits')}</span>
               </div>
             </div>
           </div>

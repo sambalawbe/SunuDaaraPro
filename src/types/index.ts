@@ -46,7 +46,7 @@ export interface Article {
   id: number;
   reference: string;
   nom: string;
-  categorie: 'Alimentation' | 'Matériel Pédagogique' | 'Literie' | 'Entretien' | 'Autre';
+  categorie: string;
   quantite: number;
   unite: string;
   seuil_alerte: number;

@@ -14,6 +14,7 @@ import { Communications } from './pages/Communications';
 import { Finances } from './pages/Finances';
 import { AdminSettings } from './pages/AdminSettings';
 import { Login } from './pages/Login';
+import { Housing } from './pages/Housing';
 import { AppProvider, useApp } from './context/AppContext';
 
 function AppContent() {
@@ -27,7 +28,7 @@ function AppContent() {
   return (
     <Shell activeTab={activeTab} setActiveTab={setActiveTab}>
       <div className="p-4 md:p-8 h-full">
-        {activeTab === 'dashboard' && <Dashboard />}
+        {activeTab === 'dashboard' && <Dashboard onNavigate={setActiveTab} />}
         {activeTab === 'eleves' && <Students />}
         {activeTab === 'enseignants' && <Teachers />}
         {activeTab === 'finances' && <Finances />}
@@ -35,7 +36,8 @@ function AppContent() {
         {activeTab === 'sante' && <Health />}
         {activeTab === 'logistique' && <Inventory />}
         {activeTab === 'communications' && <Communications />}
-        {activeTab !== 'dashboard' && activeTab !== 'eleves' && activeTab !== 'enseignants' && activeTab !== 'finances' && activeTab !== 'parametres' && activeTab !== 'sante' && activeTab !== 'logistique' && activeTab !== 'communications' && (
+        {activeTab === 'logement' && <Housing />}
+        {activeTab !== 'dashboard' && activeTab !== 'eleves' && activeTab !== 'enseignants' && activeTab !== 'finances' && activeTab !== 'parametres' && activeTab !== 'sante' && activeTab !== 'logistique' && activeTab !== 'communications' && activeTab !== 'logement' && (
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
              <h2 className="text-xl font-bold">Module en cours de développement</h2>
              <p>Le module {activeTab} sera bientôt disponible.</p>

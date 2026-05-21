@@ -14,7 +14,8 @@ import {
   X,
   PlusCircle,
   MinusCircle,
-  FileText
+  FileText,
+  FolderPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
@@ -22,24 +23,139 @@ import { Article, StockMovement } from '@/src/types';
 import { useApp } from '../context/AppContext';
 
 export function Inventory() {
-  const { articles, mouvements, addMouvement } = useApp();
+  const { 
+    articles, 
+    mouvements, 
+    addMouvement, 
+    categoriesLogistique, 
+    addArticle, 
+    addCategoryLogistique 
+  } = useApp();
+
   const [activeView, setActiveView] = React.useState<'stock' | 'history'>('stock');
   const [isArticleModalOpen, setIsArticleModalOpen] = React.useState(false);
   const [isMovementModalOpen, setIsMovementModalOpen] = React.useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = React.useState('Toutes');
+
+  // Category modal states
+  const [newCategoryName, setNewCategoryName] = React.useState('');
+  const [categoryError, setCategoryError] = React.useState('');
+
+  // Article modal states
+  const [newArticleRef, setNewArticleRef] = React.useState('');
+  const [newArticleNom, setNewArticleNom] = React.useState('');
+  const [newArticleCat, setNewArticleCat] = React.useState('');
+  const [newArticleQuantite, setNewArticleQuantite] = React.useState(0);
+  const [newArticleUnite, setNewArticleUnite] = React.useState('Unités');
+  const [newArticleSeuil, setNewArticleSeuil] = React.useState(5);
+  const [articleError, setArticleError] = React.useState('');
+
+  // Movement modal states
+  const [mvtType, setMvtType] = React.useState<'Entrée' | 'Sortie'>('Entrée');
+  const [mvtArticleId, setMvtArticleId] = React.useState<number>(0);
+  const [mvtQuantite, setMvtQuantite] = React.useState<number>(0);
+  const [mvtMotif, setMvtMotif] = React.useState('');
+  const [mvtError, setMvtError] = React.useState('');
+
+  // Set default category when categories change or modal opens
+  React.useEffect(() => {
+    if (categoriesLogistique.length > 0 && !newArticleCat) {
+      setNewArticleCat(categoriesLogistique[0]);
+    }
+  }, [categoriesLogistique, newArticleCat]);
+
+  // Set default article for movement when articles change or modal opens
+  React.useEffect(() => {
+    if (isMovementModalOpen && articles.length > 0 && !mvtArticleId) {
+      setMvtArticleId(articles[0].id);
+    }
+  }, [isMovementModalOpen, articles, mvtArticleId]);
 
   const articlesCritiquesCount = articles.filter(a => a.quantite <= a.seuil_alerte).length;
   const totalArticles = articles.length;
 
-  const filteredArticles = articles.filter(a => 
-    a.nom.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    a.reference.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredArticles = articles.filter(a => {
+    const matchesSearch = a.nom.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          a.reference.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategoryFilter === 'Toutes' || a.categorie === selectedCategoryFilter;
+    return matchesSearch && matchesCategory;
+  });
 
   const getStockStatus = (article: Article) => {
     if (article.quantite === 0) return { label: 'Rupture', color: 'bg-red-100 text-red-700 border-red-200', icon: AlertTriangle };
     if (article.quantite <= article.seuil_alerte) return { label: 'Stock Bas', color: 'bg-orange-100 text-orange-700 border-orange-200', icon: AlertTriangle };
     return { label: 'En Stock', color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle2 };
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) {
+      setCategoryError('Veuillez saisir un nom de catégorie.');
+      return;
+    }
+    const success = await addCategoryLogistique(newCategoryName.trim());
+    if (success) {
+      setNewCategoryName('');
+      setCategoryError('');
+      setIsCategoryModalOpen(false);
+    } else {
+      setCategoryError('Cette catégorie existe déjà ou impossible de la créer.');
+    }
+  };
+
+  const handleCreateArticle = async () => {
+    if (!newArticleRef.trim() || !newArticleNom.trim() || !newArticleCat) {
+      setArticleError('Veuillez remplir tous les champs obligatoires.');
+      return;
+    }
+    const success = await addArticle({
+      reference: newArticleRef.trim(),
+      nom: newArticleNom.trim(),
+      categorie: newArticleCat,
+      quantite: Number(newArticleQuantite),
+      unite: newArticleUnite,
+      seuil_alerte: Number(newArticleSeuil)
+    });
+    if (success) {
+      setIsArticleModalOpen(false);
+      setNewArticleRef('');
+      setNewArticleNom('');
+      setNewArticleQuantite(0);
+      setNewArticleUnite('Unités');
+      setNewArticleSeuil(5);
+      setArticleError('');
+    } else {
+      setArticleError("Erreur de création. La référence existe peut-être déjà.");
+    }
+  };
+
+  const handleCreateMouvement = async () => {
+    const targetArticleId = mvtArticleId || (articles[0]?.id);
+    if (!targetArticleId) {
+      setMvtError("Aucun article disponible.");
+      return;
+    }
+    if (mvtQuantite <= 0) {
+      setMvtError("La quantité doit être supérieure à 0.");
+      return;
+    }
+    if (!mvtMotif.trim()) {
+      setMvtError("Veuillez spécifier un motif.");
+      return;
+    }
+    await addMouvement({
+      id: 0, // Le backend affectera un ID
+      article_id: Number(targetArticleId),
+      type_mouvement: mvtType,
+      quantite: Number(mvtQuantite),
+      motif: mvtMotif.trim(),
+      date_mouvement: new Date().toISOString()
+    });
+    setIsMovementModalOpen(false);
+    setMvtQuantite(0);
+    setMvtMotif('');
+    setMvtError('');
   };
 
   const StatCard = ({ icon: Icon, label, value, color, trend }: any) => (
@@ -71,10 +187,17 @@ export function Inventory() {
         </div>
         <div className="flex items-center gap-2">
           <button 
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-50 transition-colors flex items-center gap-2"
+          >
+            <FolderPlus className="w-4 h-4 text-green-600" />
+            <span>Nouvelle Catégorie</span>
+          </button>
+          <button 
             onClick={() => setIsArticleModalOpen(true)}
             className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-50 transition-colors flex items-center gap-2"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 text-green-600" />
             <span>Nouvel Article</span>
           </button>
           <button 
@@ -104,14 +227,13 @@ export function Inventory() {
         <StatCard 
           icon={ArrowUpRight} 
           label="Entrées (Mois)" 
-          value="24" 
+          value={mouvements.filter(m => m.type_mouvement === 'Entrée').length} 
           color="bg-blue-50 text-blue-600" 
-          trend="+12%"
         />
         <StatCard 
           icon={ArrowDownLeft} 
           label="Sorties (Mois)" 
-          value="18" 
+          value={mouvements.filter(m => m.type_mouvement === 'Sortie').length} 
           color="bg-orange-50 text-orange-600" 
         />
       </div>
@@ -158,14 +280,19 @@ export function Inventory() {
                   placeholder="Référence ou nom..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-green-500/20"
+                  className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-green-500/20 text-black"
                 />
               </div>
               <div className="flex gap-2">
-                <select className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none">
-                  <option>Toutes les catégories</option>
-                  <option>Alimentation</option>
-                  <option>Pédagogique</option>
+                <select 
+                  value={selectedCategoryFilter}
+                  onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                  className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none text-black font-medium"
+                >
+                  <option value="Toutes">Toutes les catégories</option>
+                  {categoriesLogistique.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
                 </select>
                 <button className="p-2 border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-500">
                   <Filter className="w-5 h-5" />
@@ -185,7 +312,7 @@ export function Inventory() {
                     <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 italic">
+                <tbody className="divide-y divide-gray-100">
                   {filteredArticles.map((article) => {
                     const status = getStockStatus(article);
                     const StatusIcon = status.icon;
@@ -203,19 +330,19 @@ export function Inventory() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-xs font-medium text-gray-500 px-2 py-1 bg-gray-100 rounded-lg italic">
+                          <span className="text-xs font-medium text-gray-500 px-2 py-1 bg-gray-100 rounded-lg">
                             {article.categorie}
                           </span>
                         </td>
                         <td className="px-6 py-4 font-bold text-gray-800">
                           {article.quantite} {article.unite}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-400 italic">
+                        <td className="px-6 py-4 text-sm text-gray-400">
                           {article.seuil_alerte} {article.unite}
                         </td>
                         <td className="px-6 py-4">
                           <span className={cn(
-                            "px-3 py-1 rounded-full text-[10px] font-extrabold uppercase border flex items-center gap-1 w-fit italic",
+                            "px-3 py-1 rounded-full text-[10px] font-extrabold uppercase border flex items-center gap-1 w-fit",
                             status.color
                           )}>
                             <StatusIcon className="w-3 h-3" />
@@ -235,6 +362,13 @@ export function Inventory() {
                       </tr>
                     );
                   })}
+                  {filteredArticles.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-10 text-center text-gray-400 text-sm">
+                        Aucun article trouvé.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -249,7 +383,7 @@ export function Inventory() {
           >
              <div className="overflow-x-auto">
               <table className="w-full text-left">
-                <thead className="bg-gray-50 text-gray-500 text-[10px] uppercase font-bold tracking-widest italic">
+                <thead className="bg-gray-50 text-gray-500 text-[10px] uppercase font-bold tracking-widest">
                   <tr>
                     <th className="px-6 py-4">Date</th>
                     <th className="px-6 py-4">Type</th>
@@ -258,10 +392,10 @@ export function Inventory() {
                     <th className="px-6 py-4">Motif</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 italic">
+                <tbody className="divide-y divide-gray-100">
                   {mouvements.map((mv) => (
-                    <tr key={mv.id} className="hover:bg-gray-50 transition-colors italic">
-                      <td className="px-6 py-4 text-xs text-gray-500 italic">
+                    <tr key={mv.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 text-xs text-gray-500">
                         {new Date(mv.date_mouvement).toLocaleString()}
                       </td>
                       <td className="px-6 py-4">
@@ -272,22 +406,29 @@ export function Inventory() {
                           {mv.type_mouvement}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm font-bold text-gray-800 italic">
+                      <td className="px-6 py-4 text-sm font-bold text-gray-800">
                         {mv.article_nom}
                       </td>
                       <td className="px-6 py-4">
                         <span className={cn(
-                          "font-bold italic",
+                          "font-bold",
                           mv.type_mouvement === 'Entrée' ? "text-green-600" : "text-red-600"
                         )}>
                           {mv.type_mouvement === 'Entrée' ? '+' : '-'}{mv.quantite}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 italic">
+                      <td className="px-6 py-4 text-sm text-gray-500">
                         {mv.motif}
                       </td>
                     </tr>
                   ))}
+                  {mouvements.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-10 text-center text-gray-400 text-sm">
+                        Aucun mouvement de stock enregistré.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -295,7 +436,59 @@ export function Inventory() {
         )}
       </AnimatePresence>
 
-      {/* Modals placeholders for logic */}
+      {/* Modal - Nouvelle Catégorie */}
+      <AnimatePresence>
+        {isCategoryModalOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsCategoryModalOpen(false)}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white">
+                <h2 className="text-xl font-bold text-gray-800">Nouvelle Catégorie</h2>
+                <button onClick={() => setIsCategoryModalOpen(false)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="p-8 space-y-4 text-black">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase">Nom de la Catégorie</label>
+                  <input 
+                    type="text" 
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium" 
+                    placeholder="Ex: Équipements, Mobilier..." 
+                  />
+                </div>
+                {categoryError && (
+                  <p className="text-xs text-red-600 font-medium">{categoryError}</p>
+                )}
+              </div>
+              <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+                <button onClick={() => setIsCategoryModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-white rounded-xl">Annuler</button>
+                <button 
+                  onClick={handleCreateCategory}
+                  className="px-8 py-2 bg-green-700 text-white rounded-xl text-sm font-bold hover:bg-green-800 shadow-lg shadow-green-700/20"
+                >
+                  Créer la Catégorie
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal - Nouvel Article */}
       <AnimatePresence>
         {isArticleModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -310,117 +503,217 @@ export function Inventory() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col italic"
+              className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
             >
-              <div className="p-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white italic">
-                <h2 className="text-xl font-bold text-gray-800 italic">Nouvel Article</h2>
-                <button onClick={() => setIsArticleModalOpen(false)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full italic">
-                  <X className="w-6 h-6 italic" />
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white">
+                <h2 className="text-xl font-bold text-gray-800">Nouvel Article</h2>
+                <button onClick={() => setIsArticleModalOpen(false)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full">
+                  <X className="w-6 h-6" />
                 </button>
               </div>
-              <div className="p-8 space-y-6 text-black italic">
-                <div className="grid grid-cols-2 gap-6 italic">
-                   <div className="space-y-2 italic">
-                    <label className="text-xs font-bold text-gray-400 uppercase italic">Référence</label>
-                    <input type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 italic" placeholder="REF-001" />
+              <div className="p-8 space-y-6 text-black">
+                <div className="grid grid-cols-2 gap-6">
+                   <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 uppercase">Référence (Unique)</label>
+                    <input 
+                      type="text" 
+                      value={newArticleRef}
+                      onChange={(e) => setNewArticleRef(e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium" 
+                      placeholder="Ex: REF-001" 
+                    />
                   </div>
-                  <div className="space-y-2 italic">
-                    <label className="text-xs font-bold text-gray-400 uppercase italic">Catégorie</label>
-                    <select className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 italic">
-                      <option>Alimentation</option>
-                      <option>Matériel Pédagogique</option>
-                      <option>Literie</option>
-                    </select>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 uppercase">Catégorie</label>
+                    <div className="flex gap-2">
+                      <select 
+                        value={newArticleCat}
+                        onChange={(e) => setNewArticleCat(e.target.value)}
+                        className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium"
+                      >
+                        {categoriesLogistique.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                      <button 
+                        onClick={() => setIsCategoryModalOpen(true)}
+                        type="button"
+                        className="p-3 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl transition-colors shrink-0"
+                        title="Créer une catégorie"
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-2 italic">
-                  <label className="text-xs font-bold text-gray-400 uppercase italic">Nom de l'Article</label>
-                  <input type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 italic" placeholder="Ex: Sac de Riz" />
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase">Nom de l'Article</label>
+                  <input 
+                    type="text" 
+                    value={newArticleNom}
+                    onChange={(e) => setNewArticleNom(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium" 
+                    placeholder="Ex: Sac de Riz" 
+                  />
                 </div>
-                <div className="grid grid-cols-2 gap-6 italic">
-                   <div className="space-y-2 italic">
-                    <label className="text-xs font-bold text-gray-400 uppercase italic">Quantité Initiale</label>
-                    <div className="flex italic">
-                      <input type="number" className="flex-1 bg-gray-50 border border-gray-200 rounded-l-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 italic" defaultValue="0" />
-                      <select className="bg-gray-100 border border-gray-200 border-l-0 rounded-r-xl px-4 py-3 outline-none text-sm font-bold italic">
-                        <option>Unités</option>
-                        <option>Kg</option>
-                        <option>Litres</option>
+                <div className="grid grid-cols-2 gap-6">
+                   <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 uppercase">Quantité Initiale</label>
+                    <div className="flex">
+                      <input 
+                        type="number" 
+                        value={newArticleQuantite}
+                        onChange={(e) => setNewArticleQuantite(Number(e.target.value))}
+                        className="flex-1 bg-gray-50 border border-gray-200 rounded-l-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium" 
+                      />
+                      <select 
+                        value={newArticleUnite}
+                        onChange={(e) => setNewArticleUnite(e.target.value)}
+                        className="bg-gray-100 border border-gray-200 border-l-0 rounded-r-xl px-4 py-3 outline-none text-sm font-bold text-gray-700"
+                      >
+                        <option value="Unités">Unités</option>
+                        <option value="Kg">Kg</option>
+                        <option value="Litres">Litres</option>
+                        <option value="Sacs">Sacs</option>
+                        <option value="Bidons">Bidons</option>
                       </select>
                     </div>
                   </div>
-                   <div className="space-y-2 italic">
-                    <label className="text-xs font-bold text-gray-400 uppercase italic">Seuil d'Alerte</label>
-                    <input type="number" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 italic" defaultValue="5" />
+                   <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 uppercase">Seuil d'Alerte</label>
+                    <input 
+                      type="number" 
+                      value={newArticleSeuil}
+                      onChange={(e) => setNewArticleSeuil(Number(e.target.value))}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium" 
+                    />
                   </div>
                 </div>
+                {articleError && (
+                  <p className="text-xs text-red-600 font-medium">{articleError}</p>
+                )}
               </div>
-              <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 italic">
-                <button onClick={() => setIsArticleModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-white rounded-xl italic">Annuler</button>
-                <button className="px-8 py-2 bg-green-700 text-white rounded-xl text-sm font-bold hover:bg-green-800 shadow-lg shadow-green-700/20 italic">Créer Article</button>
+              <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+                <button onClick={() => setIsArticleModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-white rounded-xl">Annuler</button>
+                <button 
+                  onClick={handleCreateArticle}
+                  className="px-8 py-2 bg-green-700 text-white rounded-xl text-sm font-bold hover:bg-green-800 shadow-lg shadow-green-700/20"
+                >
+                  Créer Article
+                </button>
               </div>
             </motion.div>
           </div>
         )}
+      </AnimatePresence>
 
+      {/* Modal - Mouvement de Stock */}
+      <AnimatePresence>
         {isMovementModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 italic">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMovementModalOpen(false)}
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm italic"
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             />
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col italic"
+              className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
             >
-               <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-green-700 text-white italic">
-                <h2 className="text-xl font-bold italic">Mouvement de Stock</h2>
-                <button onClick={() => setIsMovementModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full italic">
-                  <X className="w-6 h-6 italic" />
+               <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-green-700 text-white">
+                <h2 className="text-xl font-bold">Mouvement de Stock</h2>
+                <button onClick={() => setIsMovementModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full">
+                  <X className="w-6 h-6" />
                 </button>
               </div>
-              <div className="p-8 space-y-6 text-black italic">
-                <div className="flex gap-4 italic">
-                  <button className="flex-1 p-4 rounded-2xl border-2 border-green-100 bg-green-50 text-green-700 flex flex-col items-center gap-2 transition-all hover:bg-green-100 italic">
-                    <PlusCircle className="w-6 h-6 italic" />
-                    <span className="text-sm font-bold italic">ENTRÉ</span>
+              <div className="p-8 space-y-6 text-black">
+                <div className="flex gap-4">
+                  <button 
+                    type="button"
+                    onClick={() => setMvtType('Entrée')}
+                    className={cn(
+                      "flex-1 p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all",
+                      mvtType === 'Entrée' 
+                        ? "border-green-600 bg-green-50 text-green-700 shadow-sm" 
+                        : "border-gray-200 bg-white text-gray-400 hover:bg-gray-50"
+                    )}
+                  >
+                    <PlusCircle className="w-6 h-6" />
+                    <span className="text-sm font-bold">ENTRÉE</span>
                   </button>
-                   <button className="flex-1 p-4 rounded-2xl border-2 border-orange-100 bg-orange-50 text-orange-700 flex flex-col items-center gap-2 transition-all hover:bg-orange-100 italic">
-                    <MinusCircle className="w-6 h-6 italic" />
-                    <span className="text-sm font-bold italic">SORTIE</span>
+                   <button 
+                    type="button"
+                    onClick={() => setMvtType('Sortie')}
+                    className={cn(
+                      "flex-1 p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all",
+                      mvtType === 'Sortie' 
+                        ? "border-orange-600 bg-orange-50 text-orange-700 shadow-sm" 
+                        : "border-gray-200 bg-white text-gray-400 hover:bg-gray-50"
+                    )}
+                  >
+                    <MinusCircle className="w-6 h-6" />
+                    <span className="text-sm font-bold">SORTIE</span>
                   </button>
                 </div>
-                <div className="space-y-4 italic">
-                  <div className="space-y-2 italic">
-                    <label className="text-xs font-bold text-gray-400 uppercase italic">Choisir l'Article</label>
-                    <select className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 italic">
-                      {articles.map(a => <option key={a.id} value={a.id}>{a.nom}</option>)}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 uppercase">Choisir l'Article</label>
+                    <select 
+                      value={mvtArticleId}
+                      onChange={(e) => setMvtArticleId(Number(e.target.value))}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium"
+                    >
+                      {articles.map(a => <option key={a.id} value={a.id}>{a.nom} ({a.reference})</option>)}
+                      {articles.length === 0 && <option>Aucun article disponible</option>}
                     </select>
                   </div>
-                   <div className="grid grid-cols-2 gap-4 italic">
-                    <div className="space-y-2 italic">
-                      <label className="text-xs font-bold text-gray-400 uppercase italic">Quantité</label>
-                      <input type="number" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 italic" />
+                   <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase">Quantité</label>
+                      <input 
+                        type="number" 
+                        value={mvtQuantite}
+                        onChange={(e) => setMvtQuantite(Number(e.target.value))}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium" 
+                      />
                     </div>
-                    <div className="space-y-2 italic">
-                      <label className="text-xs font-bold text-gray-400 uppercase italic">Date</label>
-                      <input type="date" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 italic" defaultValue={new Date().toISOString().split('T')[0]} />
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase">Date</label>
+                      <input 
+                        type="date" 
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium" 
+                        defaultValue={new Date().toISOString().split('T')[0]} 
+                        disabled
+                      />
                     </div>
                   </div>
-                  <div className="space-y-2 italic">
-                    <label className="text-xs font-bold text-gray-400 uppercase italic">Motif du mouvement</label>
-                    <textarea rows={2} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 resize-none italic" placeholder="Ex: Consommation cuisine..." />
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 uppercase">Motif du mouvement</label>
+                    <textarea 
+                      rows={2} 
+                      value={mvtMotif}
+                      onChange={(e) => setMvtMotif(e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 resize-none text-black font-medium" 
+                      placeholder="Ex: Consommation cuisine, don reçu..." 
+                    />
                   </div>
                 </div>
+                {mvtError && (
+                  <p className="text-xs text-red-600 font-medium">{mvtError}</p>
+                )}
               </div>
-              <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 italic">
-                <button onClick={() => setIsMovementModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-white rounded-xl italic">Annuler</button>
-                <button className="px-8 py-2 bg-green-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-green-700/20 italic tracking-wide">Confirmer le Mouvement</button>
+              <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+                <button onClick={() => setIsMovementModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-white rounded-xl">Annuler</button>
+                <button 
+                  onClick={handleCreateMouvement}
+                  className="px-8 py-2 bg-green-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-green-700/20 tracking-wide"
+                >
+                  Confirmer le Mouvement
+                </button>
               </div>
             </motion.div>
           </div>

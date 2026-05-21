@@ -11,7 +11,9 @@ import {
   Eye,
   EyeOff,
   Activity,
-  AlertTriangle
+  AlertTriangle,
+  Database,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
@@ -19,8 +21,8 @@ import { useApp } from '../context/AppContext';
 import { UserRole, Utilisateur } from '../types';
 
 export function AdminSettings() {
-  const { utilisateurs, auditLogs, addUtilisateur, toggleUserStatus, currentUser } = useApp();
-  const [activeTab, setActiveTab] = React.useState<'users' | 'logs'>('users');
+  const { utilisateurs, auditLogs, addUtilisateur, toggleUserStatus, currentUser, t } = useApp();
+  const [activeTab, setActiveTab] = React.useState<'users' | 'logs' | 'backup'>('users');
   const [isModalOpen, setIsModalOpen] = React.useState(false);
 
   // Form state
@@ -94,10 +96,20 @@ export function AdminSettings() {
           <History className="w-4 h-4" />
           Journal d'Audit (Logs)
         </button>
+        <button 
+          onClick={() => setActiveTab('backup')}
+          className={cn(
+            "px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2",
+            activeTab === 'backup' ? "bg-slate-900 text-white shadow-lg" : "text-gray-400 hover:text-gray-600"
+          )}
+        >
+          <Database className="w-4 h-4" />
+          Sauvegarde (Backup)
+        </button>
       </div>
 
       <AnimatePresence mode="wait">
-        {activeTab === 'users' ? (
+        {activeTab === 'users' && (
           <motion.div 
             key="users"
             initial={{ opacity: 0, y: 10 }}
@@ -173,7 +185,9 @@ export function AdminSettings() {
               </table>
             </div>
           </motion.div>
-        ) : (
+        )}
+
+        {activeTab === 'logs' && (
           <motion.div 
             key="logs"
             initial={{ opacity: 0, y: 10 }}
@@ -223,6 +237,62 @@ export function AdminSettings() {
                 </tbody>
               </table>
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'backup' && (
+          <motion.div 
+            key="backup"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 text-black max-w-2xl space-y-6"
+          >
+            <div className="flex items-start gap-4">
+              <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl shrink-0">
+                <Database className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">{t('db_backup')}</h3>
+                <p className="text-xs text-slate-400 mt-1">{t('db_backup_sub')}</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-100 p-6 rounded-2xl space-y-3 font-medium text-xs text-slate-600 leading-relaxed">
+              <div className="flex justify-between border-b border-slate-200/50 pb-2">
+                <span>{t('db_type')} :</span>
+                <span className="font-bold text-slate-800 font-mono">SQLite 3 (Local)</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-200/50 pb-2">
+                <span>{t('db_file')} :</span>
+                <span className="font-bold text-slate-800 font-mono">sama_daara.db</span>
+              </div>
+              <div className="flex justify-between">
+                <span>{t('db_path')} :</span>
+                <span className="font-bold text-slate-800 font-mono">/Users/yaya/Documents/GitHub/SunuDaaraPro/sama_daara.db</span>
+              </div>
+            </div>
+
+            <div className="flex bg-amber-50 border border-amber-100 p-5 rounded-2xl">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="ml-3 space-y-2">
+                <h4 className="text-xs font-bold text-amber-800">{t('db_warning_title')}</h4>
+                <p className="text-[11px] text-amber-700 leading-relaxed">
+                  {t('db_warning_desc')}
+                </p>
+              </div>
+            </div>
+
+            <button 
+              type="button"
+              onClick={() => {
+                window.location.href = '/api/backup';
+              }}
+              className="w-full bg-slate-900 text-white rounded-[20px] py-4 font-bold text-sm shadow-xl shadow-slate-900/10 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              {t('db_download_btn')}
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

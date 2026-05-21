@@ -27,13 +27,101 @@ import { MessageTemplate, CommunicationLog } from '@/src/types';
 import { useApp } from '../context/AppContext';
 
 export function Communications() {
-  const { templates, logs, eleves } = useApp();
+  const { templates, logs, eleves, refreshData } = useApp();
   const [activeTab, setActiveTab] = React.useState<'send' | 'history'>('send');
   const [isCampaignModalOpen, setIsCampaignModalOpen] = React.useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = React.useState(false);
   const [selectedTemplate, setSelectedTemplate] = React.useState<MessageTemplate | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [targetFilter, setTargetFilter] = React.useState<'all' | 'sponsors' | 'internal'>('all');
+
+  const [messageText, setMessageText] = React.useState('');
+  const [isSending, setIsSending] = React.useState(false);
+  const [canal, setCanal] = React.useState<'SMS' | 'WhatsApp' | 'Email'>('SMS');
+
+  // Nouveaux modèles
+  const [newTemplateTitle, setNewTemplateTitle] = React.useState('');
+  const [newTemplateCanal, setNewTemplateCanal] = React.useState<'SMS' | 'WhatsApp' | 'Email'>('SMS');
+  const [newTemplateContenu, setNewTemplateContenu] = React.useState('');
+
+  const handleSendCampaign = async () => {
+    if (!messageText) return;
+    setIsSending(true);
+    
+    let targetsEleves = eleves;
+    if (targetFilter === 'sponsors') {
+      targetsEleves = eleves.filter(e => e.statut_prise_en_charge === 'Parrainé');
+    } else if (targetFilter === 'internal') {
+      targetsEleves = eleves.filter(e => e.statut_pension === 'Interne');
+    }
+
+    const targets = targetsEleves.map(eleve => {
+      let msg = messageText;
+      msg = msg.replace(/\[Nom_Parent\]/g, eleve.tuteur_nom || 'Parent');
+      msg = msg.replace(/\[Nom_Parrain\]/g, eleve.tuteur_nom || 'Parrain');
+      msg = msg.replace(/\[Nom_Donateur\]/g, eleve.tuteur_nom || 'Donateur');
+      msg = msg.replace(/\[Nom_Eleve\]/g, `${eleve.prenom} ${eleve.nom}`);
+      msg = msg.replace(/\[Hizb\]/g, String(eleve.niveau_hizb));
+      msg = msg.replace(/\[Mois\]/g, new Date().toLocaleString('fr-FR', { month: 'long' }));
+      msg = msg.replace(/\[Montant\]/g, '0');
+      msg = msg.replace(/\[Diagnostic\]/g, 'consultation médicale');
+
+      return {
+        parent_nom: eleve.tuteur_nom || `${eleve.prenom} ${eleve.nom}`,
+        telephone: eleve.contact_parent,
+        message: msg
+      };
+    }).filter(t => t.telephone);
+
+    try {
+      const res = await fetch('/api/sms/send-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targets })
+      });
+      if (res.ok) {
+        await refreshData();
+        setIsCampaignModalOpen(false);
+        setMessageText('');
+        setSelectedTemplate(null);
+        alert(`Campagne envoyée avec succès à ${targets.length} destinataires !`);
+      } else {
+        alert('Erreur lors de l\'envoi de la campagne.');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erreur réseau lors de l\'envoi de la campagne.');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleCreateTemplate = async () => {
+    if (!newTemplateTitle || !newTemplateContenu) return;
+    try {
+      const res = await fetch('/api/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          titre: newTemplateTitle,
+          canal: newTemplateCanal,
+          contenu: newTemplateContenu
+        })
+      });
+      if (res.ok) {
+        await refreshData();
+        setIsTemplateModalOpen(false);
+        setNewTemplateTitle('');
+        setNewTemplateContenu('');
+        setNewTemplateCanal('SMS');
+      } else {
+        alert('Erreur lors de la création du modèle.');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erreur réseau lors de la création du modèle.');
+    }
+  };
 
   const sponsorsCount = eleves.filter(e => e.statut_prise_en_charge === 'Parrainé').length;
   
@@ -74,7 +162,12 @@ export function Communications() {
             <span>Nouveau Modèle</span>
           </button>
           <button 
-            onClick={() => setIsCampaignModalOpen(true)}
+            onClick={() => {
+              setSelectedTemplate(null);
+              setMessageText('');
+              setCanal('SMS');
+              setIsCampaignModalOpen(true);
+            }}
             className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2"
           >
             <Send className="w-4 h-4" />
@@ -127,6 +220,8 @@ export function Communications() {
                     className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
                     onClick={() => {
                       setSelectedTemplate(template);
+                      setMessageText(template.contenu);
+                      setCanal(template.canal);
                       setIsCampaignModalOpen(true);
                     }}
                   >
@@ -179,6 +274,16 @@ export function Communications() {
                 <button 
                   onClick={() => {
                     setTargetFilter('sponsors');
+                    const parrainsTemplate = templates.find(t => t.titre.includes('Parrains') || t.titre.includes('parrain'));
+                    if (parrainsTemplate) {
+                      setSelectedTemplate(parrainsTemplate);
+                      setMessageText(parrainsTemplate.contenu);
+                      setCanal(parrainsTemplate.canal);
+                    } else {
+                      setSelectedTemplate(null);
+                      setMessageText('');
+                      setCanal('SMS');
+                    }
                     setIsCampaignModalOpen(true);
                   }}
                   className="w-full mt-6 bg-white text-blue-600 py-3 rounded-xl font-extrabold text-sm hover:bg-blue-50 transition-colors shadow-lg"
@@ -356,10 +461,15 @@ export function Communications() {
                     <label className="text-xs font-bold text-gray-400 uppercase italic">Canal de communication</label>
                     <div className="grid grid-cols-3 gap-2 italic">
                        {['SMS', 'WhatsApp', 'Email'].map(c => (
-                         <button key={c} className={cn(
-                           "py-2 rounded-xl text-xs font-bold border transition-all italic",
-                           selectedTemplate?.canal === c ? "bg-blue-50 border-blue-600 text-blue-600" : "bg-gray-50 border-gray-200 text-gray-500"
-                         )}>
+                         <button 
+                           key={c} 
+                           type="button"
+                           onClick={() => setCanal(c as any)}
+                           className={cn(
+                             "py-2 rounded-xl text-xs font-bold border transition-all italic",
+                             canal === c ? "bg-blue-50 border-blue-600 text-blue-600" : "bg-gray-50 border-gray-200 text-gray-500"
+                           )}
+                         >
                             {c}
                          </button>
                        ))}
@@ -386,6 +496,8 @@ export function Communications() {
                     onChange={(e) => {
                       const t = templates.find(temp => temp.id === Number(e.target.value));
                       setSelectedTemplate(t || null);
+                      setMessageText(t ? t.contenu : '');
+                      if (t) setCanal(t.canal);
                     }}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 italic"
                   >
@@ -398,15 +510,13 @@ export function Communications() {
                   <label className="text-xs font-bold text-gray-400 uppercase italic">Contenu du message</label>
                   <div className="relative italic">
                     <div className="absolute inset-0 p-6 pointer-events-none text-sm leading-relaxed whitespace-pre-wrap break-words opacity-0">
-                      {selectedTemplate?.contenu || ''}
+                      {messageText}
                     </div>
                     <textarea 
                       rows={6}
-                      value={selectedTemplate?.contenu || ''}
+                      value={messageText}
                       onChange={(e) => {
-                        if (selectedTemplate) {
-                          setSelectedTemplate({ ...selectedTemplate, contenu: e.target.value });
-                        }
+                        setMessageText(e.target.value);
                       }}
                       placeholder="Composez votre message ici..."
                       className="w-full bg-gray-50 border border-gray-200 rounded-2xl p-6 outline-none focus:ring-2 focus:ring-blue-500/20 text-sm leading-relaxed italic z-10 relative bg-transparent"
@@ -425,7 +535,7 @@ export function Communications() {
                        Aperçu du rendu final
                     </p>
                     <p className="text-sm text-gray-300 leading-relaxed font-mono">
-                       {(selectedTemplate?.contenu || '').split(/(\[.*?\])/).map((part, i) => (
+                       {messageText.split(/(\[.*?\])/).map((part, i) => (
                          part.startsWith('[') && part.endsWith(']') ? 
                            <span key={i} className="text-blue-400 font-bold bg-blue-900/50 px-1 rounded border border-blue-500/30">{part}</span> 
                            : part
@@ -449,8 +559,19 @@ export function Communications() {
                 >
                   Annuler
                 </button>
-                <button className="bg-blue-600 text-white px-8 py-2 rounded-xl text-sm font-extrabold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 italic flex items-center gap-2">
-                  <Send className="w-4 h-4 italic" />
+                <button 
+                  onClick={handleSendCampaign}
+                  disabled={isSending || !messageText}
+                  className={cn(
+                    "bg-blue-600 text-white px-8 py-2 rounded-xl text-sm font-extrabold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 italic flex items-center gap-2",
+                    (isSending || !messageText) && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {isSending ? (
+                    <div className="w-4 h-4 border-2 border-white/35 border-t-white rounded-full animate-spin mr-1" />
+                  ) : (
+                    <Send className="w-4 h-4 italic" />
+                  )}
                   Lancer l'Envoi ({getTargetCount()})
                 </button>
               </div>
@@ -480,24 +601,49 @@ export function Communications() {
               <div className="space-y-4 text-black italic">
                  <div className="space-y-2 italic">
                    <label className="text-xs font-bold text-gray-400 italic uppercase">Titre du Modèle</label>
-                   <input type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 italic outfit text-black" placeholder="Ex: Avis de retard" />
+                   <input 
+                     type="text" 
+                     value={newTemplateTitle}
+                     onChange={(e) => setNewTemplateTitle(e.target.value)}
+                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 italic outfit text-black outline-none focus:ring-2 focus:ring-blue-500/20" 
+                     placeholder="Ex: Avis de retard" 
+                   />
                  </div>
                  <div className="space-y-2 italic text-black">
                    <label className="text-xs font-bold text-gray-400 italic uppercase">Canal Défaut</label>
-                   <select className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 italic text-black">
-                      <option>SMS</option>
-                      <option>WhatsApp</option>
-                      <option>Email</option>
+                   <select 
+                     value={newTemplateCanal}
+                     onChange={(e) => setNewTemplateCanal(e.target.value as any)}
+                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 italic text-black outline-none focus:ring-2 focus:ring-blue-500/20"
+                   >
+                      <option value="SMS">SMS</option>
+                      <option value="WhatsApp">WhatsApp</option>
+                      <option value="Email">Email</option>
                    </select>
                  </div>
                  <div className="space-y-2 italic">
                    <label className="text-xs font-bold text-gray-400 italic uppercase">Structure du message</label>
-                   <textarea rows={4} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 italic text-black outfit" placeholder="Utilisez les [] pour les variables..." />
+                   <textarea 
+                     rows={4} 
+                     value={newTemplateContenu}
+                     onChange={(e) => setNewTemplateContenu(e.target.value)}
+                     className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 italic text-black outfit outline-none focus:ring-2 focus:ring-blue-500/20" 
+                     placeholder="Utilisez les [] pour les variables..." 
+                   />
                  </div>
               </div>
               <div className="mt-8 flex justify-end gap-3 italic">
-                 <button onClick={() => setIsTemplateModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 italic">Fermer</button>
-                 <button className="px-6 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/10 italic">Enregistrer</button>
+                 <button onClick={() => setIsTemplateModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-colors italic">Fermer</button>
+                 <button 
+                   onClick={handleCreateTemplate}
+                   disabled={!newTemplateTitle || !newTemplateContenu}
+                   className={cn(
+                     "px-6 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/10 italic",
+                     (!newTemplateTitle || !newTemplateContenu) && "opacity-50 cursor-not-allowed"
+                   )}
+                 >
+                   Enregistrer
+                 </button>
               </div>
             </motion.div>
           </div>

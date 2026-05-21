@@ -15,7 +15,8 @@ import {
   Search,
   ChevronDown,
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
@@ -61,20 +62,21 @@ interface ShellProps {
 }
 
 export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
-  const { canAccess, currentUser, logout } = useApp();
+  const { canAccess, currentUser, logout, language, setLanguage, t } = useApp();
   const [collapsed, setCollapsed] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = React.useState(false);
 
   const menuItems = [
-    { id: 'dashboard', label: 'Tableau de Bord', icon: LayoutDashboard },
-    { id: 'eleves', label: 'Élèves', icon: Users },
-    { id: 'enseignants', label: 'Enseignants', icon: UserRound },
-    { id: 'finances', label: 'Finances', icon: Wallet },
-    { id: 'logistique', label: 'Logistique', icon: Package },
-    { id: 'logement', label: 'Hébergement', icon: Bed },
-    { id: 'sante', label: 'Santé', icon: Stethoscope },
-    { id: 'communications', label: 'Communications', icon: MessageSquare },
-    { id: 'parametres', label: 'Configuration', icon: ShieldCheck },
+    { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard },
+    { id: 'eleves', label: t('students'), icon: Users },
+    { id: 'enseignants', label: t('teachers'), icon: UserRound },
+    { id: 'finances', label: t('finances'), icon: Wallet },
+    { id: 'logistique', label: t('logistics'), icon: Package },
+    { id: 'logement', label: t('housing'), icon: Bed },
+    { id: 'sante', label: t('health'), icon: Stethoscope },
+    { id: 'communications', label: t('communications'), icon: MessageSquare },
+    { id: 'parametres', label: t('settings'), icon: ShieldCheck },
   ].filter(item => canAccess(item.id));
 
   return (
@@ -120,7 +122,7 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
             className="flex items-center w-full px-4 py-2 text-sm text-gray-600 hover:bg-red-50 hover:text-red-700 rounded-lg group transition-colors"
           >
             <LogOut className="w-5 h-5 text-gray-400 group-hover:text-red-700" />
-            {!collapsed && <span className="ml-3">Déconnexion</span>}
+            {!collapsed && <span className="ml-3">{t('logout')}</span>}
           </button>
         </div>
       </motion.aside>
@@ -137,14 +139,83 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Rechercher un élève, un matricule..."
+                placeholder={t('search_placeholder')}
                 className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
               />
             </div>
           </div>
 
           <div className="flex items-center gap-3 md:gap-6">
-             <button title="Notifications" className="relative p-2 text-gray-500 hover:bg-gray-50 rounded-full transition-colors">
+            {/* Language Switcher */}
+            <div className="relative">
+              <button 
+                onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors text-xs font-bold text-gray-700"
+              >
+                <Globe className="w-4 h-4 text-gray-400" />
+                <span className="uppercase">{language}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+              </button>
+
+              <AnimatePresence>
+                {isLangDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setIsLangDropdownOpen(false)} />
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded-2xl shadow-xl z-40 p-1.5 flex flex-col gap-1"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLanguage('fr');
+                          setIsLangDropdownOpen(false);
+                        }}
+                        className={cn(
+                          "w-full text-left px-3 py-2 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors flex items-center justify-between",
+                          language === 'fr' ? "text-green-700 bg-green-50/50 font-bold" : "text-gray-600"
+                        )}
+                      >
+                        <span>Français</span>
+                        {language === 'fr' && <span className="w-1.5 h-1.5 rounded-full bg-green-600" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLanguage('wo');
+                          setIsLangDropdownOpen(false);
+                        }}
+                        className={cn(
+                          "w-full text-left px-3 py-2 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors flex items-center justify-between",
+                          language === 'wo' ? "text-green-700 bg-green-50/50 font-bold" : "text-gray-600"
+                        )}
+                      >
+                        <span>Wolof</span>
+                        {language === 'wo' && <span className="w-1.5 h-1.5 rounded-full bg-green-600" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLanguage('ar');
+                          setIsLangDropdownOpen(false);
+                        }}
+                        className={cn(
+                          "w-full text-left px-3 py-2 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors flex items-center justify-between",
+                          language === 'ar' ? "text-green-700 bg-green-50/50 font-bold" : "text-gray-600"
+                        )}
+                      >
+                        <span>العربية</span>
+                        {language === 'ar' && <span className="w-1.5 h-1.5 rounded-full bg-green-600" />}
+                      </button>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <button title="Notifications" className="relative p-2 text-gray-500 hover:bg-gray-50 rounded-full transition-colors">
               <Bell className="w-6 h-6" />
               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
             </button>
@@ -222,7 +293,7 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
                   className="flex items-center w-full px-4 py-3 text-sm text-gray-600 hover:bg-red-50 hover:text-red-700 rounded-lg group transition-colors"
                 >
                   <LogOut className="w-5 h-5 text-gray-400 group-hover:text-red-700" />
-                  <span className="ml-3 font-semibold">Déconnexion</span>
+                  <span className="ml-3 font-semibold">{t('logout')}</span>
                 </button>
               </div>
             </motion.aside>
