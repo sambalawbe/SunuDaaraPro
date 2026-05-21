@@ -439,11 +439,11 @@ export function Communications() {
                 </div>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-3 bg-white/10 rounded-2xl">
-                    <span className="text-sm">Élèves parrainés</span>
+                    <span className="text-sm">Élèves payants</span>
                     <span className="font-bold bg-white text-blue-600 px-2 py-0.5 rounded-lg text-xs">{sponsorsCount}</span>
                   </div>
                    <div className="flex items-center justify-between p-3 bg-white/10 rounded-2xl">
-                    <span className="text-sm">En attente de parrain</span>
+                    <span className="text-sm">Élèves non payants</span>
                     <span className="font-bold bg-white text-blue-600 px-2 py-0.5 rounded-lg text-xs">{eleves.length - sponsorsCount}</span>
                   </div>
                 </div>
@@ -464,7 +464,7 @@ export function Communications() {
                   }}
                   className="w-full mt-6 bg-white text-blue-600 py-3 rounded-xl font-extrabold text-sm hover:bg-blue-50 transition-colors shadow-lg"
                 >
-                  Envoyer Lettre aux Parrains
+                  Contacter les élèves payants
                 </button>
               </div>
 
@@ -659,7 +659,7 @@ export function Communications() {
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 italic text-black font-medium"
                     >
                       <option value="all">Tous les parents ({eleves.length})</option>
-                      <option value="sponsors">Parrains uniquement ({sponsorsCount})</option>
+                      <option value="sponsors">Élèves payants uniquement ({sponsorsCount})</option>
                       <option value="internal">Internat uniquement ({eleves.filter(e => e.statut_pension === 'Interne').length})</option>
                       <option value="custom">Sélection personnalisée (liste)</option>
                       <option value="manual">Saisie manuelle de numéros</option>

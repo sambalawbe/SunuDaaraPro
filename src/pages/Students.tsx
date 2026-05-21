@@ -339,7 +339,7 @@ export function Students() {
                 <th className="px-6 py-4">Matricule</th>
                 <th className="px-6 py-4">Progression (Hizb)</th>
                 <th className="px-6 py-4">Enseignant</th>
-                <th className="px-6 py-4">Prise en Charge</th>
+                <th className="px-6 py-4">Scolarité</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -390,7 +390,7 @@ export function Students() {
                         ? "bg-green-100 text-green-700" 
                         : "bg-orange-100 text-orange-700"
                     )}>
-                      {eleve.statut_prise_en_charge}
+                      {eleve.statut_prise_en_charge === 'Parrainé' ? 'Payant' : 'Non payant'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -483,7 +483,7 @@ export function Students() {
                               "flex items-center gap-1 font-bold",
                               selectedEleve.statut_prise_en_charge === 'Parrainé' ? "text-green-600" : "text-orange-600"
                             )}>
-                              <CreditCard className="w-4 h-4" /> {selectedEleve.statut_prise_en_charge}
+                              <CreditCard className="w-4 h-4" /> {selectedEleve.statut_prise_en_charge === 'Parrainé' ? 'Payant' : 'Non payant'}
                             </span>
                             <span className={cn(
                               "px-2 py-0.5 rounded text-xs font-bold uppercase border",
