@@ -108,8 +108,18 @@ export function Health() {
   const handleStartEdit = () => {
     if (selectedMedicalRecord) {
       setEditForm({ ...selectedMedicalRecord });
-      setIsEditingRecord(true);
+    } else if (selectedStudentId) {
+      setEditForm({
+        eleve_id: selectedStudentId,
+        groupe_sanguin: 'O+',
+        poids: undefined,
+        allergies: 'Aucune',
+        antecedents: '',
+        contact_urgence_nom: '',
+        contact_urgence_tel: ''
+      });
     }
+    setIsEditingRecord(true);
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
@@ -293,26 +303,34 @@ export function Health() {
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      {fichesMedicales.find(r => r.eleve_id === selectedStudentId)?.allergies !== 'Aucune' ? (
-                        <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-start gap-4">
-                          <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-1" />
-                          <div>
-                            <p className="text-sm font-bold text-red-700">Alerte Allergies !</p>
-                            <p className="text-xs text-red-600 mt-1">
-                              Cet élève présente les allergies suivantes : <span className="font-extrabold underline">{fichesMedicales.find(r => r.eleve_id === selectedStudentId)?.allergies}</span>.
-                              Antécédents : {fichesMedicales.find(r => r.eleve_id === selectedStudentId)?.antecedents}
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-start gap-4">
-                          <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-1" />
-                          <div>
-                            <p className="text-sm font-bold text-emerald-700">Aucune Allergie connue</p>
-                            <p className="text-xs text-emerald-600 mt-1">Rien à signaler dans le dossier médical de base.</p>
-                          </div>
-                        </div>
-                      )}
+                      {(() => {
+                        const record = fichesMedicales.find(r => r.eleve_id === selectedStudentId);
+                        const hasAllergies = record && record.allergies && record.allergies !== 'Aucune';
+                        if (hasAllergies) {
+                          return (
+                            <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-start gap-4">
+                              <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-1" />
+                              <div>
+                                <p className="text-sm font-bold text-red-700">Alerte Allergies !</p>
+                                <p className="text-xs text-red-600 mt-1">
+                                  Cet élève présente les allergies suivantes : <span className="font-extrabold underline">{record.allergies}</span>.
+                                  Antécédents : {record.antecedents || 'Aucun'}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-start gap-4">
+                              <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-1" />
+                              <div>
+                                <p className="text-sm font-bold text-emerald-700">Aucune Allergie connue</p>
+                                <p className="text-xs text-emerald-600 mt-1">Rien à signaler dans le dossier médical de base.</p>
+                              </div>
+                            </div>
+                          );
+                        }
+                      })()}
                     </motion.div>
                   )}
                 </AnimatePresence>
