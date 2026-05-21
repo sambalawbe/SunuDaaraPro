@@ -23,7 +23,7 @@ import { Enseignant } from '@/src/types';
 import { useApp } from '../context/AppContext';
 
 export function Teachers() {
-  const { enseignants } = useApp();
+  const { enseignants, eleves, addEnseignant, updateEnseignant, deleteEnseignant } = useApp();
   const [selectedTeacher, setSelectedTeacher] = React.useState<Enseignant | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
@@ -45,6 +45,53 @@ export function Teachers() {
   const openDrawer = (teacher: Enseignant) => {
     setSelectedTeacher(teacher);
     setIsDrawerOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      nom: formData.get('nom') as string,
+      prenom: formData.get('prenom') as string,
+      telephone: formData.get('telephone') as string,
+      specialite: formData.get('specialite') as string,
+      adresse: (formData.get('adresse') as string) || '',
+      salaire_mensuel: Number(formData.get('salaire_mensuel') || 0),
+      date_embauche: (formData.get('date_embauche') as string) || new Date().toISOString().substring(0, 10),
+      competences: (formData.get('competences') as string) || '',
+      statut: (selectedTeacher?.statut || 'Actif') as 'Actif' | 'Inactif',
+      statut_paiement_mois: (selectedTeacher?.statut_paiement_mois || 'En attente') as 'Payé' | 'En attente',
+      photo_url: selectedTeacher?.photo_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.get('prenom')}`
+    };
+
+    if (modalMode === 'add') {
+      const success = await addEnseignant(data);
+      if (success) {
+        setIsModalOpen(false);
+      } else {
+        alert('Erreur lors de la création de l\'enseignant.');
+      }
+    } else if (modalMode === 'edit' && selectedTeacher) {
+      const success = await updateEnseignant({
+        ...selectedTeacher,
+        ...data
+      });
+      if (success) {
+        setIsModalOpen(false);
+      } else {
+        alert('Erreur lors de la mise à jour de l\'enseignant.');
+      }
+    }
+  };
+
+  const handleDeleteTeacher = async (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
+    if (confirm('Voulez-vous vraiment supprimer cet enseignant ?')) {
+      const success = await deleteEnseignant(id);
+      if (!success) {
+        alert('Erreur lors de la suppression de l\'enseignant.');
+      }
+    }
   };
 
   return (
@@ -114,7 +161,7 @@ export function Teachers() {
                   <button onClick={(e) => openEditModal(e, teacher)} className="p-2 hover:bg-gray-50 rounded-lg text-gray-400 hover:text-green-600">
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button onClick={(e) => e.stopPropagation()} className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600">
+                  <button onClick={(e) => handleDeleteTeacher(e, teacher.id)} className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -237,22 +284,36 @@ export function Teachers() {
                 {/* Sub-list of students */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-gray-800">Élèves assignés ({selectedTeacher.nb_eleves})</h4>
-                    <button className="text-xs text-green-600 font-bold hover:underline">Voir la liste complète</button>
+                    <h4 className="font-bold text-gray-800">
+                      Élèves assignés ({eleves.filter(student => student.enseignant_id === selectedTeacher.id).length})
+                    </h4>
+                    <button type="button" className="text-xs text-green-600 font-bold hover:underline">Voir la liste complète</button>
                   </div>
                   <div className="space-y-2">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl hover:border-green-200 transition-colors cursor-pointer">
-                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500 font-bold">
-                          E{i}
+                    {(() => {
+                      const assignedStudents = eleves.filter(student => student.enseignant_id === selectedTeacher.id);
+                      if (assignedStudents.length === 0) {
+                        return (
+                          <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                            <p className="text-sm text-gray-500 font-medium">Aucun élève n'est assigné à cet enseignant.</p>
+                          </div>
+                        );
+                      }
+                      return assignedStudents.map((student) => (
+                        <div key={student.id} className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl hover:border-green-200 transition-colors cursor-pointer">
+                          <img 
+                            src={student.photo_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.prenom}`} 
+                            alt={student.nom} 
+                            className="w-8 h-8 rounded-full border border-gray-200 object-cover"
+                          />
+                          <div>
+                            <p className="text-sm font-bold text-gray-800">{student.prenom} {student.nom}</p>
+                            <p className="text-[10px] text-gray-400">Matricule: {student.matricule}</p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 ml-auto text-gray-300" />
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-gray-800">Élève Exemple {i}</p>
-                          <p className="text-[10px] text-gray-400">Matricule: DAARA-EX-{i}</p>
-                        </div>
-                        <ChevronRight className="w-4 h-4 ml-auto text-gray-300" />
-                      </div>
-                    ))}
+                      ));
+                    })()}
                   </div>
                 </div>
               </div>
@@ -289,59 +350,60 @@ export function Teachers() {
                 <h2 className="text-xl font-bold text-gray-800">
                   {modalMode === 'add' ? 'Ajouter un Enseignant' : 'Modifier Enseignant'}
                 </h2>
-                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-8 text-black">
-                <form className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div className="flex-1 overflow-y-auto p-8 text-black grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase">Nom</label>
-                    <input type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.nom} />
+                    <input name="nom" required type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.nom} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase">Prénom</label>
-                    <input type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.prenom} />
+                    <input name="prenom" required type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.prenom} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase">Téléphone</label>
-                    <input type="tel" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.telephone} />
+                    <input name="telephone" required type="tel" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.telephone} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase">Spécialité</label>
-                    <input type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.specialite} />
+                    <input name="specialite" required type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.specialite} />
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <label className="text-xs font-bold text-gray-400 uppercase">Adresse</label>
-                    <input type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.adresse} />
+                    <input name="adresse" type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.adresse} />
                   </div>
                    <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase">Salaire Mensuel (CFA)</label>
-                    <input type="number" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.salaire_mensuel} />
+                    <input name="salaire_mensuel" required type="number" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.salaire_mensuel} />
                   </div>
                    <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase">Date d'embauche</label>
-                    <input type="date" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.date_embauche} />
+                    <input name="date_embauche" required type="date" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher ? new Date(selectedTeacher.date_embauche).toISOString().substring(0, 10) : ''} />
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <label className="text-xs font-bold text-gray-400 uppercase">Compétences & Qualifications</label>
-                    <textarea rows={3} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 resize-none" defaultValue={selectedTeacher?.competences} />
+                    <textarea name="competences" rows={3} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 resize-none" defaultValue={selectedTeacher?.competences} />
                   </div>
-                </form>
-              </div>
+                </div>
 
-              <div className="p-6 border-t border-gray-100 flex justify-end gap-3 shrink-0 bg-gray-50">
-                <button 
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-6 py-2 rounded-xl text-sm font-medium text-gray-600 hover:bg-white transition-colors"
-                >
-                  Annuler
-                </button>
-                <button className="bg-green-700 text-white px-8 py-2 rounded-xl text-sm font-medium hover:bg-green-800 transition-all shadow-lg shadow-green-700/20">
-                  {modalMode === 'add' ? 'Créer le profil' : 'Mettre à jour'}
-                </button>
-              </div>
+                <div className="p-6 border-t border-gray-100 flex justify-end gap-3 shrink-0 bg-gray-50">
+                  <button 
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-6 py-2 rounded-xl text-sm font-medium text-gray-600 hover:bg-white transition-colors"
+                  >
+                    Annuler
+                  </button>
+                  <button type="submit" className="bg-green-700 text-white px-8 py-2 rounded-xl text-sm font-medium hover:bg-green-800 transition-all shadow-lg shadow-green-700/20">
+                    {modalMode === 'add' ? 'Créer le profil' : 'Mettre à jour'}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

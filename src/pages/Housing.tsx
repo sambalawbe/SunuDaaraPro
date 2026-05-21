@@ -11,7 +11,9 @@ import {
   Info,
   Sparkles,
   Layers,
-  Users
+  Users,
+  Edit2,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
@@ -45,16 +47,129 @@ export function Housing() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [assigning, setAssigning] = React.useState(false);
 
+  // Dortoir CRUD States
+  const [isDortoirModalOpen, setIsDortoirModalOpen] = React.useState(false);
+  const [dortoirModalMode, setDortoirModalMode] = React.useState<'add' | 'edit'>('add');
+  const [editingDortoir, setEditingDortoir] = React.useState<Dortoir | null>(null);
+  const [dortoirFormError, setDortoirFormError] = React.useState<string | null>(null);
+  const [submittingDortoir, setSubmittingDortoir] = React.useState(false);
+
+  const openAddDortoirModal = () => {
+    setDortoirModalMode('add');
+    setEditingDortoir(null);
+    setDortoirFormError(null);
+    setIsDortoirModalOpen(true);
+  };
+
+  const openEditDortoirModal = (dortoir: Dortoir) => {
+    setDortoirModalMode('edit');
+    setEditingDortoir(dortoir);
+    setDortoirFormError(null);
+    setIsDortoirModalOpen(true);
+  };
+
+  const handleDortoirSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSubmittingDortoir(true);
+    setDortoirFormError(null);
+
+    const formData = new FormData(e.currentTarget);
+    const nom = formData.get('nom') as string;
+    const capacite_lits = Number(formData.get('capacite_lits'));
+
+    if (!nom || !capacite_lits) {
+      setDortoirFormError("Tous les champs sont obligatoires.");
+      setSubmittingDortoir(false);
+      return;
+    }
+
+    try {
+      const url = dortoirModalMode === 'add' ? '/api/dortoirs' : `/api/dortoirs/${editingDortoir?.id}`;
+      const method = dortoirModalMode === 'add' ? 'POST' : 'PUT';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nom, capacite_lits })
+      });
+
+      let data: any = {};
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        data = { error: text || `Erreur serveur (${res.status})` };
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || "Une erreur est survenue.");
+      }
+
+      await fetchDortoirs();
+      setIsDortoirModalOpen(false);
+      
+      if (dortoirModalMode === 'add' && data.id) {
+        setSelectedDortoir(data.id);
+      }
+    } catch (err: any) {
+      setDortoirFormError(err.message || "Impossible d'enregistrer le dortoir.");
+    } finally {
+      setSubmittingDortoir(false);
+    }
+  };
+
+  const handleDeleteDortoir = async (dortoir: Dortoir) => {
+    if (window.confirm(`Voulez-vous vraiment supprimer le dortoir "${dortoir.nom}" ?`)) {
+      try {
+        const res = await fetch(`/api/dortoirs/${dortoir.id}`, {
+          method: 'DELETE'
+        });
+        
+        let data: any = {};
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          data = await res.json();
+        } else {
+          const text = await res.text();
+          data = { error: text || `Erreur serveur (${res.status})` };
+        }
+
+        if (!res.ok) {
+          throw new Error(data.error || "Une erreur est survenue.");
+        }
+        
+        await fetchDortoirs();
+        if (selectedDortoir === dortoir.id) {
+          setSelectedDortoir(dortoirs.find(d => d.id !== dortoir.id)?.id || null);
+        }
+      } catch (err: any) {
+        alert(err.message || "Impossible de supprimer le dortoir.");
+      }
+    }
+  };
+
   // Charger les dortoirs
   const fetchDortoirs = async () => {
     try {
       setLoading(true);
       const res = await fetch('/api/dortoirs');
+      let data: any = [];
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(text || `Erreur serveur (${res.status})`);
+      }
       if (res.ok) {
-        const data = await res.json();
         setDortoirs(data);
-        if (data.length > 0 && selectedDortoir === null) {
-          setSelectedDortoir(data[0].id);
+        if (data.length > 0) {
+          if (selectedDortoir === null || !data.some((d: Dortoir) => d.id === selectedDortoir)) {
+            setSelectedDortoir(data[0].id);
+          }
+        } else {
+          setSelectedDortoir(null);
         }
       }
     } catch (e) {
@@ -198,7 +313,16 @@ export function Housing() {
         
         {/* Dormitory List Sidebar */}
         <div className="lg:col-span-1 space-y-4">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest pl-2">Dortoirs</h2>
+          <div className="flex items-center justify-between pl-2 pr-1">
+            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Dortoirs</h2>
+            <button 
+              onClick={openAddDortoirModal}
+              className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-indigo-600 transition-colors"
+              title="Ajouter un dortoir"
+            >
+              <Plus className="w-4.5 h-4.5" />
+            </button>
+          </div>
           <div className="space-y-2">
             {loading && (
               <div className="flex justify-center p-4">
@@ -254,7 +378,25 @@ export function Housing() {
             <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-2xl shadow-slate-100/50">
               <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-800">{currentDortoir.nom}</h3>
+                  <div className="flex items-center gap-2.5">
+                    <h3 className="text-xl font-bold text-slate-800">{currentDortoir.nom}</h3>
+                    <div className="flex gap-0.5">
+                      <button 
+                        onClick={() => openEditDortoirModal(currentDortoir)}
+                        className="p-1 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-indigo-600 transition-colors"
+                        title="Modifier ce dortoir"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteDortoir(currentDortoir)}
+                        className="p-1 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-600 transition-colors"
+                        title="Supprimer ce dortoir"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
                   <p className="text-xs text-slate-400 mt-1">Cliquez sur un lit libre pour y affecter un élève interne.</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -429,6 +571,97 @@ export function Housing() {
                   </div>
                 )}
               </div>
+            </motion.div>
+          </div>
+        )}
+
+        {isDortoirModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsDortoirModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-md bg-white rounded-[40px] shadow-2xl p-8 overflow-hidden flex flex-col"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-black text-slate-800">
+                    {dortoirModalMode === 'add' ? 'Créer un Dortoir' : 'Modifier le Dortoir'}
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {dortoirModalMode === 'add' 
+                      ? 'Configurez un nouvel espace de dortoir pour les talibés.' 
+                      : 'Mettez à jour le nom ou la capacité du dortoir.'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsDortoirModalOpen(false)}
+                  className="p-2 hover:bg-slate-50 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
+              </div>
+
+              {dortoirFormError && (
+                <div className="mb-4 p-3.5 bg-rose-50 border border-rose-100 text-rose-700 text-xs rounded-2xl flex items-center gap-2 font-medium">
+                  <Info className="w-4 h-4 shrink-0" />
+                  <span>{dortoirFormError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleDortoirSubmit} className="space-y-4 text-black">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Nom du dortoir</label>
+                  <input
+                    name="nom"
+                    required
+                    type="text"
+                    placeholder="Ex: Dortoir Al-Azhar"
+                    defaultValue={editingDortoir?.nom || ''}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-sm focus:border-indigo-500 outline-none transition-all text-slate-700 font-medium"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Nombre de lits (Capacité)</label>
+                  <input
+                    name="capacite_lits"
+                    required
+                    type="number"
+                    min="1"
+                    placeholder="Ex: 10"
+                    defaultValue={editingDortoir?.capacite_lits || ''}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-sm focus:border-indigo-500 outline-none transition-all text-slate-700 font-medium"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-50 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setIsDortoirModalOpen(false)}
+                    className="px-6 py-2.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-slate-50 transition-colors"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingDortoir}
+                    className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white px-8 py-2.5 rounded-2xl text-sm font-bold shadow-lg shadow-indigo-600/20 transition-all flex items-center gap-2"
+                  >
+                    {submittingDortoir && (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    )}
+                    <span>{dortoirModalMode === 'add' ? 'Créer' : 'Enregistrer'}</span>
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

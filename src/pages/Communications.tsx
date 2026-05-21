@@ -33,29 +33,82 @@ export function Communications() {
   const [isTemplateModalOpen, setIsTemplateModalOpen] = React.useState(false);
   const [selectedTemplate, setSelectedTemplate] = React.useState<MessageTemplate | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [targetFilter, setTargetFilter] = React.useState<'all' | 'sponsors' | 'internal'>('all');
+  const [targetFilter, setTargetFilter] = React.useState<'all' | 'sponsors' | 'internal' | 'custom' | 'manual' | 'csv'>('all');
 
   const [messageText, setMessageText] = React.useState('');
   const [isSending, setIsSending] = React.useState(false);
   const [canal, setCanal] = React.useState<'SMS' | 'WhatsApp' | 'Email'>('SMS');
+
+  // Nouveaux états pour le ciblage dynamique
+  const [customSelectedIds, setCustomSelectedIds] = React.useState<Set<number>>(new Set());
+  const [studentSearchQuery, setStudentSearchQuery] = React.useState('');
+  const [manualRecipientName, setManualRecipientName] = React.useState('');
+  const [manualRecipientPhone, setManualRecipientPhone] = React.useState('');
+  const [csvRecipients, setCsvRecipients] = React.useState<Array<{ nom: string; telephone: string }>>([]);
+  const [csvError, setCsvError] = React.useState('');
+  const [csvSuccess, setCsvSuccess] = React.useState('');
 
   // Nouveaux modèles
   const [newTemplateTitle, setNewTemplateTitle] = React.useState('');
   const [newTemplateCanal, setNewTemplateCanal] = React.useState<'SMS' | 'WhatsApp' | 'Email'>('SMS');
   const [newTemplateContenu, setNewTemplateContenu] = React.useState('');
 
-  const handleSendCampaign = async () => {
-    if (!messageText) return;
-    setIsSending(true);
-    
+  const getTargets = () => {
+    if (targetFilter === 'manual') {
+      const phones = manualRecipientPhone
+        .split(/[\n,]/)
+        .map(p => p.trim())
+        .filter(p => p.length > 0);
+      
+      return phones.map(phone => {
+        let msg = messageText;
+        msg = msg.replace(/\[Nom_Parent\]/g, manualRecipientName || 'Parent');
+        msg = msg.replace(/\[Nom_Parrain\]/g, manualRecipientName || 'Parrain');
+        msg = msg.replace(/\[Nom_Donateur\]/g, manualRecipientName || 'Donateur');
+        msg = msg.replace(/\[Nom_Eleve\]/g, 'Élève');
+        msg = msg.replace(/\[Hizb\]/g, '0');
+        msg = msg.replace(/\[Mois\]/g, new Date().toLocaleString('fr-FR', { month: 'long' }));
+        msg = msg.replace(/\[Montant\]/g, '0');
+        msg = msg.replace(/\[Diagnostic\]/g, 'consultation médicale');
+
+        return {
+          parent_nom: manualRecipientName || 'Destinataire Manuel',
+          telephone: phone,
+          message: msg
+        };
+      });
+    }
+
+    if (targetFilter === 'csv') {
+      return csvRecipients.map(r => {
+        let msg = messageText;
+        msg = msg.replace(/\[Nom_Parent\]/g, r.nom || 'Parent');
+        msg = msg.replace(/\[Nom_Parrain\]/g, r.nom || 'Parrain');
+        msg = msg.replace(/\[Nom_Donateur\]/g, r.nom || 'Donateur');
+        msg = msg.replace(/\[Nom_Eleve\]/g, 'Élève');
+        msg = msg.replace(/\[Hizb\]/g, '0');
+        msg = msg.replace(/\[Mois\]/g, new Date().toLocaleString('fr-FR', { month: 'long' }));
+        msg = msg.replace(/\[Montant\]/g, '0');
+        msg = msg.replace(/\[Diagnostic\]/g, 'consultation médicale');
+
+        return {
+          parent_nom: r.nom || 'Contact CSV',
+          telephone: r.telephone,
+          message: msg
+        };
+      });
+    }
+
     let targetsEleves = eleves;
     if (targetFilter === 'sponsors') {
       targetsEleves = eleves.filter(e => e.statut_prise_en_charge === 'Parrainé');
     } else if (targetFilter === 'internal') {
       targetsEleves = eleves.filter(e => e.statut_pension === 'Interne');
+    } else if (targetFilter === 'custom') {
+      targetsEleves = eleves.filter(e => customSelectedIds.has(e.id));
     }
 
-    const targets = targetsEleves.map(eleve => {
+    return targetsEleves.map(eleve => {
       let msg = messageText;
       msg = msg.replace(/\[Nom_Parent\]/g, eleve.tuteur_nom || 'Parent');
       msg = msg.replace(/\[Nom_Parrain\]/g, eleve.tuteur_nom || 'Parrain');
@@ -72,6 +125,18 @@ export function Communications() {
         message: msg
       };
     }).filter(t => t.telephone);
+  };
+
+  const handleSendCampaign = async () => {
+    if (!messageText) return;
+    setIsSending(true);
+    
+    const targets = getTargets();
+    if (targets.length === 0) {
+      alert('Aucun destinataire valide à cibler.');
+      setIsSending(false);
+      return;
+    }
 
     try {
       const res = await fetch('/api/sms/send-bulk', {
@@ -84,6 +149,12 @@ export function Communications() {
         setIsCampaignModalOpen(false);
         setMessageText('');
         setSelectedTemplate(null);
+        setCustomSelectedIds(new Set());
+        setManualRecipientName('');
+        setManualRecipientPhone('');
+        setCsvRecipients([]);
+        setCsvSuccess('');
+        setCsvError('');
         alert(`Campagne envoyée avec succès à ${targets.length} destinataires !`);
       } else {
         alert('Erreur lors de l\'envoi de la campagne.');
@@ -94,6 +165,113 @@ export function Communications() {
     } finally {
       setIsSending(false);
     }
+  };
+
+  const filteredStudents = eleves.filter(e => 
+    `${e.prenom} ${e.nom}`.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+    (e.tuteur_nom || '').toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+    (e.matricule || '').toLowerCase().includes(studentSearchQuery.toLowerCase())
+  );
+
+  const toggleSelectStudent = (id: number) => {
+    const next = new Set(customSelectedIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setCustomSelectedIds(next);
+  };
+
+  const selectAllStudents = () => {
+    setCustomSelectedIds(new Set(eleves.map(e => e.id)));
+  };
+
+  const deselectAllStudents = () => {
+    setCustomSelectedIds(new Set());
+  };
+
+  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvError('');
+    setCsvSuccess('');
+    setCsvRecipients([]);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (!text) {
+          setCsvError('Le fichier est vide.');
+          return;
+        }
+
+        const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
+        if (lines.length === 0) {
+          setCsvError('Aucune ligne trouvée dans le fichier.');
+          return;
+        }
+
+        const firstLine = lines[0];
+        const separator = firstLine.includes(';') ? ';' : ',';
+
+        const headers = firstLine.split(separator).map(h => h.trim().toLowerCase());
+        
+        let nameIdx = -1;
+        let phoneIdx = -1;
+
+        const nameKeywords = ['nom', 'name', 'tuteur', 'parent', 'destinataire', 'contact'];
+        const phoneKeywords = ['tel', 'phone', 'téléphone', 'telephone', 'mobile', 'numero', 'numéro'];
+
+        headers.forEach((h, idx) => {
+          if (nameKeywords.some(keyword => h.includes(keyword))) {
+            nameIdx = idx;
+          }
+          if (phoneKeywords.some(keyword => h.includes(keyword))) {
+            phoneIdx = idx;
+          }
+        });
+
+        let startLine = 1;
+        if (nameIdx === -1 || phoneIdx === -1) {
+          nameIdx = 0;
+          phoneIdx = 1;
+          const looksLikeData = /\d+/.test(firstLine);
+          if (looksLikeData) {
+            startLine = 0;
+          }
+        }
+
+        const parsed: Array<{ nom: string; telephone: string }> = [];
+
+        for (let i = startLine; i < lines.length; i++) {
+          const cols = lines[i].split(separator).map(c => c.trim().replace(/^["']|["']$/g, ''));
+          const nom = cols[nameIdx] || `Contact ${i}`;
+          const telephone = cols[phoneIdx] || '';
+
+          if (telephone) {
+            parsed.push({ nom, telephone });
+          }
+        }
+
+        if (parsed.length === 0) {
+          setCsvError('Aucun contact avec un numéro de téléphone valide n\'a été détecté.');
+        } else {
+          setCsvRecipients(parsed);
+          setCsvSuccess(`${parsed.length} contacts chargés avec succès.`);
+        }
+      } catch (err: any) {
+        setCsvError(`Erreur lors de la lecture du fichier : ${err.message}`);
+      }
+    };
+
+    reader.onerror = () => {
+      setCsvError('Erreur de lecture du fichier.');
+    };
+
+    reader.readAsText(file);
   };
 
   const handleCreateTemplate = async () => {
@@ -140,9 +318,7 @@ export function Communications() {
   };
 
   const getTargetCount = () => {
-    if (targetFilter === 'all') return eleves.length;
-    if (targetFilter === 'sponsors') return sponsorsCount;
-    return eleves.filter(e => e.statut_pension === 'Interne').length;
+    return getTargets().length;
   };
 
   return (
@@ -480,14 +656,165 @@ export function Communications() {
                     <select 
                       value={targetFilter} 
                       onChange={(e) => setTargetFilter(e.target.value as any)}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 italic"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 italic text-black font-medium"
                     >
                       <option value="all">Tous les parents ({eleves.length})</option>
                       <option value="sponsors">Parrains uniquement ({sponsorsCount})</option>
-                      <option value="internal">Internat uniquement</option>
+                      <option value="internal">Internat uniquement ({eleves.filter(e => e.statut_pension === 'Interne').length})</option>
+                      <option value="custom">Sélection personnalisée (liste)</option>
+                      <option value="manual">Saisie manuelle de numéros</option>
+                      <option value="csv">Importer un fichier CSV</option>
                     </select>
                   </div>
                 </div>
+
+                {/* Options de cibles conditionnelles */}
+                {targetFilter === 'custom' && (
+                  <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200/60 space-y-4 text-black">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-gray-500 uppercase">Sélectionnez les élèves ({customSelectedIds.size} sélectionné(s))</span>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          type="button" 
+                          onClick={selectAllStudents}
+                          className="text-[10px] bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg font-bold hover:bg-blue-100 transition-colors"
+                        >
+                          Tout cocher
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={deselectAllStudents}
+                          className="text-[10px] bg-gray-200 text-gray-600 px-2.5 py-1 rounded-lg font-bold hover:bg-gray-300 transition-colors"
+                        >
+                          Tout décocher
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input 
+                        type="text" 
+                        placeholder="Rechercher un élève ou tuteur..." 
+                        value={studentSearchQuery}
+                        onChange={(e) => setStudentSearchQuery(e.target.value)}
+                        className="pl-10 pr-4 py-2 w-full bg-white border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 outline-none text-black"
+                      />
+                    </div>
+
+                    <div className="max-h-48 overflow-y-auto divide-y divide-gray-100 border border-gray-200/50 rounded-xl bg-white p-2 space-y-1">
+                      {filteredStudents.map(eleve => {
+                        const isChecked = customSelectedIds.has(eleve.id);
+                        return (
+                          <label 
+                            key={eleve.id} 
+                            className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors"
+                          >
+                            <input 
+                              type="checkbox" 
+                              checked={isChecked}
+                              onChange={() => toggleSelectStudent(eleve.id)}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                            />
+                            <img 
+                              src={eleve.photo_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${eleve.prenom}`}
+                              alt={eleve.prenom} 
+                              className="w-8 h-8 rounded-full border border-gray-100 shrink-0" 
+                            />
+                            <div className="text-left">
+                              <p className="text-xs font-bold text-gray-800">{eleve.prenom} {eleve.nom}</p>
+                              <p className="text-[10px] text-gray-400">Parent: {eleve.tuteur_nom || 'N/A'} ({eleve.contact_parent})</p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                      {filteredStudents.length === 0 && (
+                        <p className="text-xs text-gray-400 py-4 text-center">Aucun élève trouvé.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {targetFilter === 'manual' && (
+                  <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200/60 space-y-3 text-black">
+                    <span className="text-xs font-bold text-gray-500 uppercase block">Saisie Manuelle</span>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Nom du contact (optionnel)</label>
+                        <input 
+                          type="text" 
+                          placeholder="Ex: Tuteur externe"
+                          value={manualRecipientName}
+                          onChange={(e) => setManualRecipientName(e.target.value)}
+                          className="w-full bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500/20 text-black font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Numéro(s) de téléphone (séparés par une virgule ou saut de ligne)</label>
+                        <textarea 
+                          rows={3}
+                          placeholder="Ex: +221771234567, +221789876543"
+                          value={manualRecipientPhone}
+                          onChange={(e) => setManualRecipientPhone(e.target.value)}
+                          className="w-full bg-white border border-gray-200 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-blue-500/20 text-black font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {targetFilter === 'csv' && (
+                  <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200/60 space-y-3 text-black">
+                    <span className="text-xs font-bold text-gray-500 uppercase block">Importer un fichier CSV</span>
+                    <p className="text-[11px] text-gray-400 leading-normal">
+                      Le fichier CSV doit contenir des colonnes avec les entêtes <strong>Nom</strong> et <strong>Telephone</strong> (ou simplement deux colonnes: Nom en premier, Téléphone en second).
+                    </p>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-center w-full">
+                        <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-white hover:bg-gray-50 transition-colors">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <Plus className="w-6 h-6 text-gray-400 mb-1" />
+                            <p className="text-xs text-gray-500 font-bold">Cliquez pour charger le fichier .csv</p>
+                          </div>
+                          <input 
+                            type="file" 
+                            accept=".csv" 
+                            className="hidden" 
+                            onChange={handleCSVUpload} 
+                          />
+                        </label>
+                      </div>
+
+                      {csvError && (
+                        <div className="flex items-center bg-red-50 border border-red-100 p-3 rounded-xl">
+                          <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                          <p className="text-[10px] text-red-700 ml-2 font-medium">{csvError}</p>
+                        </div>
+                      )}
+
+                      {csvSuccess && (
+                        <div className="flex items-center bg-green-50 border border-green-100 p-3 rounded-xl">
+                          <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                          <p className="text-[10px] text-green-700 ml-2 font-bold">{csvSuccess}</p>
+                        </div>
+                      )}
+
+                      {csvRecipients.length > 0 && (
+                        <div className="border border-gray-200/50 rounded-xl overflow-hidden bg-white">
+                          <p className="bg-gray-100 px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase">Aperçu des contacts</p>
+                          <div className="divide-y divide-gray-100 p-2 space-y-1 max-h-32 overflow-y-auto">
+                            {csvRecipients.map((r, idx) => (
+                              <div key={idx} className="flex justify-between text-left text-xs p-1.5">
+                                <span className="font-bold text-gray-800">{r.nom}</span>
+                                <span className="font-mono text-gray-500">{r.telephone}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2 italic">
                   <label className="text-xs font-bold text-gray-400 uppercase italic">Modèle de message</label>

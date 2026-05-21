@@ -12,7 +12,8 @@ import {
   Depense,
   Utilisateur,
   LogActivite,
-  UserRole
+  UserRole,
+  Role
 } from '../types';
 import { translations, Language } from '../lib/translations';
 
@@ -32,14 +33,16 @@ interface AppState {
   currentUser: Utilisateur | null;
   isAuthenticated: boolean;
   categoriesLogistique: string[];
+  roles: Role[];
 }
 
 interface AppContextType extends AppState {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string) => string;
-  updateEleve: (eleve: Eleve) => Promise<void>;
-  addEleve: (eleve: Eleve) => Promise<void>;
+  updateEleve: (eleve: Eleve) => Promise<boolean>;
+  addEleve: (eleve: Omit<Eleve, 'id' | 'date_inscription'>) => Promise<boolean>;
+  deleteEleve: (id: number) => Promise<boolean>;
   addConsultation: (consultation: ConsultationMedicale) => Promise<void>;
   updateFicheMedicale: (fiche: FicheMedicale) => Promise<void>;
   updateArticle: (article: Article) => Promise<void>;
@@ -50,10 +53,17 @@ interface AppContextType extends AppState {
   addDepense: (depense: Depense) => Promise<void>;
   addUtilisateur: (user: Omit<Utilisateur, 'id' | 'date_creation'>) => Promise<void>;
   toggleUserStatus: (id: number) => Promise<void>;
+  updateUserRole: (id: number, role: UserRole) => Promise<boolean>;
   canAccess: (tabId: string) => boolean;
   login: (email: string, mdp: string) => Promise<boolean>;
   logout: () => void;
   refreshData: () => Promise<void>;
+  addEnseignant: (enseignant: Omit<Enseignant, 'id' | 'nb_eleves' | 'matricule'>) => Promise<boolean>;
+  updateEnseignant: (enseignant: Enseignant) => Promise<boolean>;
+  deleteEnseignant: (id: number) => Promise<boolean>;
+  addRole: (role: Omit<Role, 'id'>) => Promise<boolean>;
+  updateRole: (role: Role) => Promise<boolean>;
+  deleteRole: (id: number) => Promise<boolean>;
 }
 
 const AppContext = React.createContext<AppContextType | undefined>(undefined);
@@ -90,6 +100,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     currentUser: null,
     isAuthenticated: false,
     categoriesLogistique: [],
+    roles: [],
   });
 
   // Charger toutes les données depuis le backend
@@ -99,7 +110,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         elevesRes, enseignantsRes, articlesRes, mouvementsRes,
         fichesRes, consultationsRes, templatesRes, logsRes,
         donsRes, depensesRes, utilisateursRes, auditLogsRes,
-        categoriesRes
+        categoriesRes, rolesRes
       ] = await Promise.all([
         fetch('/api/eleves').then(r => r.json()),
         fetch('/api/enseignants').then(r => r.json()),
@@ -113,7 +124,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         fetch('/api/depenses').then(r => r.json()),
         fetch('/api/utilisateurs').then(r => r.json()),
         fetch('/api/audit-logs').then(r => r.json()),
-        fetch('/api/categories-logistique').then(r => r.json())
+        fetch('/api/categories-logistique').then(r => r.json()),
+        fetch('/api/roles').then(r => r.json())
       ]);
 
       setState(prev => ({
@@ -130,7 +142,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         depenses: depensesRes,
         utilisateurs: utilisateursRes,
         auditLogs: auditLogsRes,
-        categoriesLogistique: Array.isArray(categoriesRes) ? categoriesRes : []
+        categoriesLogistique: Array.isArray(categoriesRes) ? categoriesRes : [],
+        roles: Array.isArray(rolesRes) ? rolesRes : []
       }));
     } catch (err) {
       console.error('Erreur lors du chargement des données API :', err);
@@ -178,21 +191,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const canAccess = (tabId: string): boolean => {
     if (!state.currentUser) return false;
-    const role = state.currentUser.role;
-    if (role === 'SUPER_ADMIN') return true;
+    const userRole = state.currentUser.role;
+    if (userRole === 'SUPER_ADMIN') return true;
+    if (tabId === 'dashboard') return true;
     
-    switch (tabId) {
-      case 'dashboard': return true;
-      case 'eleves': return role === 'ENSEIGNANT' || role === 'INTENDANT' || role === 'SUPER_ADMIN';
-      case 'enseignants': return role === 'SUPER_ADMIN';
-      case 'finances': return role === 'SUPER_ADMIN';
-      case 'logistique': return role === 'INTENDANT' || role === 'SUPER_ADMIN';
-      case 'logement': return role === 'INTENDANT' || role === 'SUPER_ADMIN';
-      case 'sante': return role === 'MEDECIN' || role === 'SUPER_ADMIN';
-      case 'communications': return role === 'SUPER_ADMIN' || role === 'ENSEIGNANT';
-      case 'parametres': return role === 'SUPER_ADMIN';
-      default: return false;
+    const matchedRole = state.roles.find(r => r.code === userRole);
+    if (!matchedRole) {
+      switch (tabId) {
+        case 'eleves': return userRole === 'ENSEIGNANT' || userRole === 'INTENDANT';
+        case 'logistique': return userRole === 'INTENDANT';
+        case 'logement': return userRole === 'INTENDANT';
+        case 'sante': return userRole === 'MEDECIN';
+        case 'communications': return userRole === 'ENSEIGNANT';
+        default: return false;
+      }
     }
+    
+    return matchedRole.permissions.includes(tabId);
   };
 
   const addUtilisateur = async (user: Omit<Utilisateur, 'id' | 'date_creation'>) => {
@@ -231,6 +246,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const updateUserRole = async (id: number, role: UserRole) => {
+    try {
+      const res = await fetch(`/api/utilisateurs/${id}/role`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role })
+      });
+      if (res.ok) {
+        // Log Audit
+        const targetUser = state.utilisateurs.find(u => u.id === id);
+        const targetName = targetUser ? `${targetUser.prenom} ${targetUser.nom}` : `ID: ${id}`;
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            utilisateur_id: state.currentUser?.id || 0,
+            action: `A changé le rôle de l'utilisateur ${targetName} en ${role}`,
+            adresse_ip: '127.0.0.1'
+          })
+        });
+        await refreshData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
     }
   };
 
@@ -282,7 +327,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addEleve = async (eleve: Eleve) => {
+  const addEleve = async (eleve: Omit<Eleve, 'id' | 'date_inscription'>): Promise<boolean> => {
     try {
       const res = await fetch('/api/eleves', {
         method: 'POST',
@@ -291,13 +336,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
       if (res.ok) {
         await refreshData();
+        return true;
       }
+      return false;
     } catch (e) {
       console.error(e);
+      return false;
     }
   };
 
-  const updateEleve = async (updatedEleve: Eleve) => {
+  const updateEleve = async (updatedEleve: Eleve): Promise<boolean> => {
     try {
       const res = await fetch(`/api/eleves/${updatedEleve.id}`, {
         method: 'PUT',
@@ -306,9 +354,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
       if (res.ok) {
         await refreshData();
+        return true;
       }
+      return false;
     } catch (e) {
       console.error(e);
+      return false;
+    }
+  };
+
+  const deleteEleve = async (id: number): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/eleves/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        await refreshData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
     }
   };
 
@@ -408,6 +475,141 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const addEnseignant = async (enseignant: Omit<Enseignant, 'id' | 'nb_eleves' | 'matricule'>): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/enseignants', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(enseignant)
+      });
+      if (res.ok) {
+        await refreshData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
+  const updateEnseignant = async (enseignant: Enseignant): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/enseignants/${enseignant.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(enseignant)
+      });
+      if (res.ok) {
+        await refreshData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
+  const deleteEnseignant = async (id: number): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/enseignants/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        await refreshData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
+  const addRole = async (role: Omit<Role, 'id'>): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/roles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(role)
+      });
+      if (res.ok) {
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            utilisateur_id: state.currentUser?.id || 0,
+            action: `A créé le rôle personnalisé ${role.libelle} (${role.code})`,
+            adresse_ip: '127.0.0.1'
+          })
+        });
+        await refreshData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
+  const updateRole = async (role: Role): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/roles/${role.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(role)
+      });
+      if (res.ok) {
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            utilisateur_id: state.currentUser?.id || 0,
+            action: `A modifié le rôle personnalisé ${role.libelle} (${role.code})`,
+            adresse_ip: '127.0.0.1'
+          })
+        });
+        await refreshData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
+  const deleteRole = async (id: number): Promise<boolean> => {
+    try {
+      const role = state.roles.find(r => r.id === id);
+      const res = await fetch(`/api/roles/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            utilisateur_id: state.currentUser?.id || 0,
+            action: `A supprimé le rôle personnalisé ${role?.libelle || id}`,
+            adresse_ip: '127.0.0.1'
+          })
+        });
+        await refreshData();
+        return true;
+      } else {
+        const errorData = await res.json();
+        alert(errorData.error || "Erreur lors de la suppression du rôle.");
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
   return (
     <AppContext.Provider value={{ 
       ...state, 
@@ -416,6 +618,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       t,
       addEleve, 
       updateEleve, 
+      deleteEleve, 
       addConsultation, 
       updateFicheMedicale,
       updateArticle, 
@@ -426,10 +629,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addDepense,
       addUtilisateur,
       toggleUserStatus,
+      updateUserRole,
       canAccess,
       login,
       logout,
-      refreshData
+      refreshData,
+      addEnseignant,
+      updateEnseignant,
+      deleteEnseignant,
+      addRole,
+      updateRole,
+      deleteRole
     }}>
       {children}
     </AppContext.Provider>

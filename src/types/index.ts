@@ -121,7 +121,15 @@ export interface Depense {
   justificatif_url?: string;
 }
 
-export type UserRole = 'SUPER_ADMIN' | 'INTENDANT' | 'MEDECIN' | 'ENSEIGNANT';
+export interface Role {
+  id: number;
+  code: string;
+  libelle: string;
+  permissions: string[];
+  description?: string;
+}
+
+export type UserRole = string;
 
 export interface Utilisateur {
   id: number;

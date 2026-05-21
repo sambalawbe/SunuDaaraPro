@@ -1,3 +1,12 @@
+-- Table des rôles personnalisés
+CREATE TABLE IF NOT EXISTS roles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT UNIQUE NOT NULL,
+    libelle TEXT NOT NULL,
+    permissions TEXT NOT NULL,
+    description TEXT
+);
+
 -- Table des utilisateurs (personnel)
 CREATE TABLE IF NOT EXISTS utilisateurs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -5,7 +14,7 @@ CREATE TABLE IF NOT EXISTS utilisateurs (
     prenom TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     mot_de_passe TEXT NOT NULL,
-    role TEXT CHECK(role IN ('SUPER_ADMIN', 'INTENDANT', 'MEDECIN', 'ENSEIGNANT')) NOT NULL,
+    role TEXT NOT NULL REFERENCES roles(code),
     statut TEXT CHECK(statut IN ('Actif', 'Suspendu')) DEFAULT 'Actif',
     date_creation TEXT DEFAULT CURRENT_TIMESTAMP
 );

@@ -71,6 +71,56 @@ async function startServer() {
     }
   }
 
+  // --- MIGRATION UTILISATEURS ---
+  const utilisateursSchema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='utilisateurs'").get() as any;
+  if (utilisateursSchema && utilisateursSchema.sql.includes("CHECK(role IN")) {
+    console.log("🔄 Migrating 'utilisateurs' table to remove CHECK constraint on role...");
+    db.pragma('foreign_keys = OFF');
+    try {
+      db.transaction(() => {
+        db.exec(`
+          CREATE TABLE utilisateurs_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nom TEXT NOT NULL,
+            prenom TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            mot_de_passe TEXT NOT NULL,
+            role TEXT NOT NULL,
+            statut TEXT CHECK(statut IN ('Actif', 'Suspendu')) DEFAULT 'Actif',
+            date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+          );
+        `);
+        db.exec("INSERT INTO utilisateurs_new (id, nom, prenom, email, mot_de_passe, role, statut, date_creation) SELECT id, nom, prenom, email, mot_de_passe, role, statut, date_creation FROM utilisateurs;");
+        db.exec("DROP TABLE utilisateurs;");
+        db.exec("ALTER TABLE utilisateurs_new RENAME TO utilisateurs;");
+      })();
+      console.log("✅ 'utilisateurs' table migrated successfully!");
+    } finally {
+      db.pragma('foreign_keys = ON');
+    }
+  }
+
+  // --- MIGRATION ROLES ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS roles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code TEXT UNIQUE NOT NULL,
+      libelle TEXT NOT NULL,
+      permissions TEXT NOT NULL,
+      description TEXT
+    );
+  `);
+
+  const rolesCount = db.prepare("SELECT COUNT(*) as count FROM roles").get() as any;
+  if (rolesCount && rolesCount.count === 0) {
+    console.log("🌱 Seeding default roles...");
+    const insertRole = db.prepare("INSERT INTO roles (code, libelle, permissions, description) VALUES (?, ?, ?, ?)");
+    insertRole.run('SUPER_ADMIN', 'Super Admin', JSON.stringify(['dashboard', 'eleves', 'enseignants', 'finances', 'logistique', 'logement', 'sante', 'communications', 'parametres']), 'Accès complet au système');
+    insertRole.run('INTENDANT', 'Intendant', JSON.stringify(['dashboard', 'eleves', 'logistique', 'logement']), 'Gestion des élèves, de la logistique et de l\'hébergement');
+    insertRole.run('MEDECIN', 'Médecin / Infirmier', JSON.stringify(['dashboard', 'sante']), 'Gestion du volet médical et des consultations');
+    insertRole.run('ENSEIGNANT', 'Enseignant', JSON.stringify(['dashboard', 'eleves', 'communications']), 'Suivi des élèves assignés et communication');
+  }
+
   // Initialiser les données de démonstration (seeding)
   seedDatabase(db);
 
@@ -558,6 +608,10 @@ async function startServer() {
   app.post("/api/utilisateurs", (req, res) => {
     const { nom, prenom, email, role, statut, mot_de_passe } = req.body;
     try {
+      const roleExists = db.prepare("SELECT 1 FROM roles WHERE code = ?").get(role);
+      if (!roleExists) {
+        return res.status(400).json({ error: "Rôle invalide ou inexistant." });
+      }
       const stmt = db.prepare(`
         INSERT INTO utilisateurs (nom, prenom, email, role, statut, mot_de_passe, date_creation)
         VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -577,6 +631,102 @@ async function startServer() {
         SET statut = CASE WHEN statut = 'Actif' THEN 'Suspendu' ELSE 'Actif' END 
         WHERE id = ?
       `).run(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/utilisateurs/:id/role", (req, res) => {
+    const { id } = req.params;
+    const { role } = req.body;
+    if (!role) {
+      return res.status(400).json({ error: "Le rôle est requis." });
+    }
+    try {
+      const roleExists = db.prepare("SELECT 1 FROM roles WHERE code = ?").get(role);
+      if (!roleExists) {
+        return res.status(400).json({ error: "Rôle invalide ou inexistant." });
+      }
+      db.prepare('UPDATE utilisateurs SET role = ? WHERE id = ?').run(role, id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // --- ROLES CRUD ---
+  app.get("/api/roles", (req, res) => {
+    try {
+      const rows = db.prepare("SELECT * FROM roles ORDER BY id ASC").all() as any[];
+      const parsed = rows.map(r => ({
+        ...r,
+        permissions: JSON.parse(r.permissions)
+      }));
+      res.json(parsed);
+    } catch (error: any) {
+      res.status(500).json({ error: "Erreur lors de la récupération des rôles: " + error.message });
+    }
+  });
+
+  app.post("/api/roles", (req, res) => {
+    const { code, libelle, permissions, description } = req.body;
+    if (!code || !libelle || !Array.isArray(permissions)) {
+      return res.status(400).json({ error: "Champs requis invalides ou manquants." });
+    }
+    const cleanCode = code.trim().toUpperCase().replace(/\s+/g, '_');
+    try {
+      const stmt = db.prepare(`
+        INSERT INTO roles (code, libelle, permissions, description)
+        VALUES (?, ?, ?, ?)
+      `);
+      const info = stmt.run(cleanCode, libelle.trim(), JSON.stringify(permissions), description || '');
+      res.status(201).json({ id: info.lastInsertRowid, code: cleanCode });
+    } catch (error: any) {
+      res.status(400).json({ error: "Erreur lors de la création du rôle (le code doit être unique) : " + error.message });
+    }
+  });
+
+  app.put("/api/roles/:id", (req, res) => {
+    const { id } = req.params;
+    const { libelle, permissions, description } = req.body;
+    if (!libelle || !Array.isArray(permissions)) {
+      return res.status(400).json({ error: "Libellé et permissions requis." });
+    }
+    try {
+      const role = db.prepare("SELECT code FROM roles WHERE id = ?").get(id) as any;
+      if (!role) {
+        return res.status(404).json({ error: "Rôle non trouvé." });
+      }
+      if (role.code === 'SUPER_ADMIN') {
+        return res.status(400).json({ error: "Impossible de modifier le rôle SUPER_ADMIN." });
+      }
+      db.prepare(`
+        UPDATE roles
+        SET libelle = ?, permissions = ?, description = ?
+        WHERE id = ?
+      `).run(libelle.trim(), JSON.stringify(permissions), description || '', id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/roles/:id", (req, res) => {
+    const { id } = req.params;
+    try {
+      const role = db.prepare("SELECT code FROM roles WHERE id = ?").get(id) as any;
+      if (!role) {
+        return res.status(404).json({ error: "Rôle non trouvé." });
+      }
+      if (role.code === 'SUPER_ADMIN') {
+        return res.status(400).json({ error: "Impossible de supprimer le rôle SUPER_ADMIN." });
+      }
+      const userCount = db.prepare("SELECT COUNT(*) as count FROM utilisateurs WHERE role = ?").get(role.code) as any;
+      if (userCount && userCount.count > 0) {
+        return res.status(400).json({ error: `Impossible de supprimer ce rôle car ${userCount.count} utilisateur(s) y sont encore associés.` });
+      }
+      db.prepare("DELETE FROM roles WHERE id = ?").run(id);
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -630,6 +780,86 @@ async function startServer() {
       res.status(500).json({ error: "Erreur dortoirs" });
     }
   });
+
+  app.post("/api/dortoirs", (req, res) => {
+    const { nom, capacite_lits } = req.body;
+    if (!nom || !capacite_lits) {
+      return res.status(400).json({ error: "Le nom et la capacité sont requis." });
+    }
+    const capacity = Number(capacite_lits);
+    if (isNaN(capacity) || capacity <= 0) {
+      return res.status(400).json({ error: "La capacité doit être un nombre supérieur à 0." });
+    }
+    try {
+      const stmt = db.prepare('INSERT INTO dortoirs (nom, capacite_lits) VALUES (?, ?)');
+      const info = stmt.run(nom, capacity);
+      res.status(201).json({ id: info.lastInsertRowid });
+    } catch (error: any) {
+      if (error.message && error.message.includes("UNIQUE constraint failed")) {
+        res.status(400).json({ error: "Un dortoir portant ce nom existe déjà." });
+      } else {
+        res.status(400).json({ error: error.message });
+      }
+    }
+  });
+
+  app.put("/api/dortoirs/:id", (req, res) => {
+    const { id } = req.params;
+    const { nom, capacite_lits } = req.body;
+    if (!nom || !capacite_lits) {
+      return res.status(400).json({ error: "Le nom et la capacité sont requis." });
+    }
+    const capacity = Number(capacite_lits);
+    if (isNaN(capacity) || capacity <= 0) {
+      return res.status(400).json({ error: "La capacité doit être un nombre supérieur à 0." });
+    }
+    try {
+      // Check if there are active occupants with bed number > capacity
+      const occupants = db.prepare(`
+        SELECT COUNT(*) as count 
+        FROM eleves 
+        WHERE dortoir_id = ? AND lit_numero > ? AND statut = 'Actif'
+      `).get(id, capacity) as any;
+      if (occupants && occupants.count > 0) {
+        return res.status(400).json({ 
+          error: `Impossible de réduire la capacité à ${capacity} car certains lits occupés dépassent cette limite.` 
+        });
+      }
+
+      const stmt = db.prepare('UPDATE dortoirs SET nom = ?, capacite_lits = ? WHERE id = ?');
+      stmt.run(nom, capacity, id);
+      res.json({ success: true });
+    } catch (error: any) {
+      if (error.message && error.message.includes("UNIQUE constraint failed")) {
+        res.status(400).json({ error: "Un dortoir portant ce nom existe déjà." });
+      } else {
+        res.status(400).json({ error: error.message });
+      }
+    }
+  });
+
+  app.delete("/api/dortoirs/:id", (req, res) => {
+    const { id } = req.params;
+    try {
+      // Check if dortoir contains any active students
+      const occupants = db.prepare(`
+        SELECT COUNT(*) as count 
+        FROM eleves 
+        WHERE dortoir_id = ? AND statut = 'Actif'
+      `).get(id) as any;
+      if (occupants && occupants.count > 0) {
+        return res.status(400).json({ 
+          error: "Impossible de supprimer ce dortoir car il contient encore des élèves." 
+        });
+      }
+
+      db.prepare('DELETE FROM dortoirs WHERE id = ?').run(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
 
   // 13. Téléchargement Sauvegarde DB
   app.get("/api/backup", (req, res) => {
