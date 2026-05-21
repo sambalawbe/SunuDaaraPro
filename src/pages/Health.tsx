@@ -33,6 +33,15 @@ export function Health() {
   
   // State for editing form
   const [editForm, setEditForm] = React.useState<FicheMedicale | null>(null);
+
+  // State for new consultation form
+  const [consultationForm, setConsultationForm] = React.useState({
+    symptomes: '',
+    diagnostic: '',
+    traitement: '',
+    statut_eleve: 'En classe' as 'En classe' | 'Repos' | 'Évacué',
+    emetteur: ''
+  });
   
   // Stats
   const totalConsultationsToday = consultations.filter(c => {
@@ -40,7 +49,19 @@ export function Health() {
     return c.date_consultation.startsWith(today);
   }).length;
   
-  const studentsInInfirmary = consultations.filter(c => c.statut_eleve === 'Repos').length;
+  const studentsInInfirmary = React.useMemo(() => {
+    const latestStatus = new Map<number, string>();
+    const sorted = [...consultations].sort((a, b) => {
+      const timeA = new Date(a.date_consultation).getTime();
+      const timeB = new Date(b.date_consultation).getTime();
+      if (timeA !== timeB) return timeA - timeB;
+      return a.id - b.id;
+    });
+    sorted.forEach(c => {
+      latestStatus.set(c.eleve_id, c.statut_eleve);
+    });
+    return Array.from(latestStatus.values()).filter(status => status === 'Repos').length;
+  }, [consultations]);
   const criticalAllergiesCount = fichesMedicales.filter(r => r.allergies && r.allergies !== 'Aucune').length;
 
   const filteredConsultations = consultations.filter(c => 
@@ -52,8 +73,27 @@ export function Health() {
   const selectedMedicalRecord = fichesMedicales.find(r => r.eleve_id === selectedStudentId);
   const selectedStudentConsultations = consultations.filter(c => c.eleve_id === selectedStudentId);
 
+  const handleOpenModal = () => {
+    setConsultationForm({
+      symptomes: '',
+      diagnostic: '',
+      traitement: '',
+      statut_eleve: 'En classe',
+      emetteur: ''
+    });
+    setSelectedStudentId(null);
+    setIsModalOpen(true);
+  };
+
   const handleAddConsultation = () => {
-    if (!selectedStudentId) return;
+    if (!selectedStudentId) {
+      alert("Veuillez sélectionner un élève.");
+      return;
+    }
+    if (!consultationForm.symptomes || !consultationForm.diagnostic || !consultationForm.traitement) {
+      alert("Veuillez remplir tous les champs obligatoires (Symptômes, Diagnostic et Traitement).");
+      return;
+    }
     const student = eleves.find(e => e.id === selectedStudentId);
     if (!student) return;
 
@@ -63,11 +103,11 @@ export function Health() {
       eleve_nom: student.nom,
       eleve_prenom: student.prenom,
       date_consultation: new Date().toISOString(),
-      symptomes: "Nouveaux symptômes",
-      diagnostic: "Diagnostic temporaire",
-      traitement: "Traitement exemple",
-      statut_eleve: 'Repos',
-      emetteur: 'Infirmier de garde'
+      symptomes: consultationForm.symptomes,
+      diagnostic: consultationForm.diagnostic,
+      traitement: consultationForm.traitement,
+      statut_eleve: consultationForm.statut_eleve,
+      emetteur: consultationForm.emetteur || 'Infirmier de garde'
     });
     setIsModalOpen(false);
   };
@@ -139,7 +179,7 @@ export function Health() {
           <p className="text-gray-500 text-sm">Gestion du suivi médical et des consultations du Daara.</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={handleOpenModal}
           className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20 font-semibold"
         >
           <Plus className="w-5 h-5" />
@@ -340,6 +380,9 @@ export function Health() {
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Symptômes déclarés</label>
                     <textarea 
                       rows={3}
+                      required
+                      value={consultationForm.symptomes}
+                      onChange={(e) => setConsultationForm(prev => ({ ...prev, symptomes: e.target.value }))}
                       placeholder="Ex: Fièvre, toux, maux de ventre..."
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none italic"
                     />
@@ -348,6 +391,9 @@ export function Health() {
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Diagnostic initial</label>
                     <textarea 
                       rows={3}
+                      required
+                      value={consultationForm.diagnostic}
+                      onChange={(e) => setConsultationForm(prev => ({ ...prev, diagnostic: e.target.value }))}
                       placeholder="Ex: Suspection de paludisme..."
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none italic"
                     />
@@ -358,6 +404,9 @@ export function Health() {
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Traitement prescrit & Médicaments</label>
                   <input 
                     type="text" 
+                    required
+                    value={consultationForm.traitement}
+                    onChange={(e) => setConsultationForm(prev => ({ ...prev, traitement: e.target.value }))}
                     placeholder="Dosage, fréquence, durée..."
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/20 italic"
                   />
@@ -366,16 +415,23 @@ export function Health() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Statut post-consultation</label>
-                    <select className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/20 italic">
-                      <option>En classe</option>
-                      <option>Repos au dortoir</option>
-                      <option>Évacué à l'hôpital</option>
+                    <select 
+                      value={consultationForm.statut_eleve}
+                      onChange={(e) => setConsultationForm(prev => ({ ...prev, statut_eleve: e.target.value as any }))}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/20 italic"
+                    >
+                      <option value="En classe">En classe</option>
+                      <option value="Repos">Repos au dortoir</option>
+                      <option value="Évacué">Évacué à l'hôpital</option>
                     </select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Émetteur (Infirmier/Admin)</label>
                     <input 
                       type="text" 
+                      required
+                      value={consultationForm.emetteur}
+                      onChange={(e) => setConsultationForm(prev => ({ ...prev, emetteur: e.target.value }))}
                       placeholder="Votre nom"
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/20 italic"
                     />
