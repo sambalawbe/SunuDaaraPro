@@ -20,10 +20,12 @@ export interface Eleve {
   lit_numero?: number;
   enseignant_id?: number;
   date_inscription: string;
+  type_eleve?: 'Payant' | 'Gratuit';
   // Join fields
   enseignant_nom?: string;
   dortoir_nom?: string;
 }
+
 
 export interface Enseignant {
   id: number;
@@ -163,3 +165,35 @@ export interface ChartData {
   name: string;
   value: number;
 }
+
+export interface PaiementEleve {
+  id: number;
+  eleve_id: number;
+  type_paiement: 'Inscription' | 'Mensualité';
+  mois?: string; // Format 'YYYY-MM'
+  montant: number;
+  date_paiement: string;
+  recu_numero: string;
+  eleve_nom?: string;
+  eleve_prenom?: string;
+  eleve_matricule?: string;
+}
+
+export interface ScolariteConfig {
+  frais_inscription: number;
+  mensualite: number;
+}
+
+export interface Paie {
+  id: number;
+  enseignant_id?: number;
+  nom: string;
+  prenom: string;
+  role_personnel: 'Enseignant' | 'Surveillant' | 'Administrateur' | 'Vigile' | 'Cuisinière' | 'Laveuse';
+  mois: string;
+  montant: number;
+  date_paiement: string;
+  recu_numero: string;
+}
+
+

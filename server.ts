@@ -121,6 +121,51 @@ async function startServer() {
     insertRole.run('ENSEIGNANT', 'Enseignant', JSON.stringify(['dashboard', 'eleves', 'communications']), 'Suivi des élèves assignés et communication');
   }
 
+  // --- MIGRATIONS PAIEMENTS ET CONFIGURATION ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS configuration (
+      cle TEXT PRIMARY KEY,
+      valeur TEXT NOT NULL
+    );
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS paiements_eleves (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      eleve_id INTEGER NOT NULL,
+      type_paiement TEXT CHECK(type_paiement IN ('Inscription', 'Mensualité')) NOT NULL,
+      mois TEXT, -- Format 'YYYY-MM'
+      montant INTEGER NOT NULL,
+      date_paiement TEXT DEFAULT CURRENT_TIMESTAMP,
+      recu_numero TEXT UNIQUE NOT NULL,
+      FOREIGN KEY (eleve_id) REFERENCES eleves(id) ON DELETE CASCADE
+    );
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS paies_personnel (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      enseignant_id INTEGER REFERENCES enseignants(id) ON DELETE SET NULL,
+      nom TEXT NOT NULL,
+      prenom TEXT NOT NULL,
+      role_personnel TEXT CHECK(role_personnel IN ('Enseignant', 'Surveillant', 'Administrateur', 'Vigile', 'Cuisinière', 'Laveuse')) NOT NULL,
+      mois TEXT NOT NULL,
+      montant INTEGER NOT NULL,
+      date_paiement TEXT DEFAULT CURRENT_TIMESTAMP,
+      recu_numero TEXT UNIQUE NOT NULL
+    );
+  `);
+
+
+  try {
+    db.exec("ALTER TABLE eleves ADD COLUMN type_eleve TEXT CHECK(type_eleve IN ('Payant', 'Gratuit')) DEFAULT 'Gratuit'");
+    console.log("✅ Added column 'type_eleve' to 'eleves' table.");
+  } catch (error: any) {
+    if (!error.message.includes("duplicate column name")) {
+      console.error("Error migrating 'eleves' table:", error.message);
+    }
+  }
+
   // Initialiser les données de démonstration (seeding)
   seedDatabase(db);
 
@@ -154,20 +199,24 @@ async function startServer() {
       
       const donsSum = db.prepare('SELECT SUM(montant) as sum FROM dons').get() as any;
       const depensesSum = db.prepare('SELECT SUM(montant) as sum FROM depenses').get() as any;
-      const soldeCaisse = (donsSum.sum || 0) - (depensesSum.sum || 0);
+      const paiementsSum = db.prepare('SELECT SUM(montant) as sum FROM paiements_eleves').get() as any;
+      const paiesSum = db.prepare('SELECT SUM(montant) as sum FROM paies_personnel').get() as any;
+      const soldeCaisse = (donsSum.sum || 0) + (paiementsSum.sum || 0) - (depensesSum.sum || 0) - (paiesSum.sum || 0);
 
       // Statistiques du mois en cours
       const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
       const donsMois = db.prepare("SELECT SUM(montant) as sum FROM dons WHERE date_don LIKE ?").get(`${currentMonth}%`) as any;
       const depensesMois = db.prepare("SELECT SUM(montant) as sum FROM depenses WHERE date_depense LIKE ?").get(`${currentMonth}%`) as any;
+      const paiementsMois = db.prepare("SELECT SUM(montant) as sum FROM paiements_eleves WHERE date_paiement LIKE ?").get(`${currentMonth}%`) as any;
+      const paiesMois = db.prepare("SELECT SUM(montant) as sum FROM paies_personnel WHERE date_paiement LIKE ?").get(`${currentMonth}%`) as any;
 
       res.json({
         totalEleves: totalEleves.count,
         totalHafiz: totalHafiz.count,
         totalEnseignants: totalEnseignants.count,
         soldeCaisse,
-        donsMois: donsMois.sum || 0,
-        depensesMois: depensesMois.sum || 0
+        donsMois: (donsMois.sum || 0) + (paiementsMois.sum || 0),
+        depensesMois: (depensesMois.sum || 0) + (paiesMois.sum || 0)
       });
     } catch (error) {
       console.error(error);
@@ -194,11 +243,11 @@ async function startServer() {
   });
 
   app.post("/api/eleves", (req, res) => {
-    const { matricule, nom, prenom, photo_url, contact_parent, tuteur_nom, niveau_actuel, niveau_hizb, dernier_verset, points_tarbyya, statut_pension, statut_prise_en_charge, dortoir_id, lit_numero, enseignant_id } = req.body;
+    const { matricule, nom, prenom, photo_url, contact_parent, tuteur_nom, niveau_actuel, niveau_hizb, dernier_verset, points_tarbyya, statut_pension, statut_prise_en_charge, dortoir_id, lit_numero, enseignant_id, type_eleve } = req.body;
     try {
       const stmt = db.prepare(`
-        INSERT INTO eleves (matricule, nom, prenom, photo_url, contact_parent, tuteur_nom, niveau_actuel, niveau_hizb, dernier_verset, points_tarbyya, statut_pension, statut_prise_en_charge, dortoir_id, lit_numero, enseignant_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO eleves (matricule, nom, prenom, photo_url, contact_parent, tuteur_nom, niveau_actuel, niveau_hizb, dernier_verset, points_tarbyya, statut_pension, statut_prise_en_charge, dortoir_id, lit_numero, enseignant_id, type_eleve)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       const info = stmt.run(
         matricule || `DAARA-${Date.now().toString().slice(-4)}`,
@@ -206,7 +255,8 @@ async function startServer() {
         contact_parent, tuteur_nom, niveau_actuel || 'Débutant',
         niveau_hizb || 0, dernier_verset || '', points_tarbyya || 0,
         statut_pension || 'Interne', statut_prise_en_charge || 'En recherche',
-        dortoir_id || null, lit_numero || null, enseignant_id || null
+        dortoir_id || null, lit_numero || null, enseignant_id || null,
+        type_eleve || 'Gratuit'
       );
       res.status(201).json({ id: info.lastInsertRowid });
     } catch (error: any) {
@@ -216,21 +266,21 @@ async function startServer() {
 
   app.put("/api/eleves/:id", (req, res) => {
     const { id } = req.params;
-    const { nom, prenom, photo_url, contact_parent, tuteur_nom, niveau_actuel, niveau_hizb, dernier_verset, points_tarbyya, statut_pension, statut_prise_en_charge, dortoir_id, lit_numero, enseignant_id, statut } = req.body;
+    const { nom, prenom, photo_url, contact_parent, tuteur_nom, niveau_actuel, niveau_hizb, dernier_verset, points_tarbyya, statut_pension, statut_prise_en_charge, dortoir_id, lit_numero, enseignant_id, statut, type_eleve } = req.body;
     try {
       const stmt = db.prepare(`
         UPDATE eleves SET 
           nom = ?, prenom = ?, photo_url = ?, contact_parent = ?, tuteur_nom = ?,
           niveau_actuel = ?, niveau_hizb = ?, dernier_verset = ?, points_tarbyya = ?,
           statut_pension = ?, statut_prise_en_charge = ?, dortoir_id = ?, lit_numero = ?,
-          enseignant_id = ?, statut = ?
+          enseignant_id = ?, statut = ?, type_eleve = ?
         WHERE id = ?
       `);
       stmt.run(
         nom, prenom, photo_url, contact_parent, tuteur_nom,
         niveau_actuel, niveau_hizb, dernier_verset, points_tarbyya,
         statut_pension, statut_prise_en_charge, dortoir_id || null, lit_numero || null,
-        enseignant_id || null, statut || 'Actif', id
+        enseignant_id || null, statut || 'Actif', type_eleve || 'Gratuit', id
       );
       res.json({ success: true });
     } catch (error: any) {
@@ -364,6 +414,181 @@ async function startServer() {
       res.status(400).json({ error: error.message });
     }
   });
+
+  // --- CONFIGURATION ROUTES ---
+  app.get("/api/config", (req, res) => {
+    try {
+      const rows = db.prepare("SELECT * FROM configuration").all() as any[];
+      const config: Record<string, string> = {};
+      rows.forEach(row => {
+        config[row.cle] = row.valeur;
+      });
+      res.json({
+        frais_inscription: Number(config.frais_inscription || 10000),
+        mensualite: Number(config.mensualite || 5000)
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: "Impossible de charger la configuration : " + error.message });
+    }
+  });
+
+  app.put("/api/config", (req, res) => {
+    const { frais_inscription, mensualite } = req.body;
+    try {
+      const stmt = db.prepare("INSERT INTO configuration (cle, valeur) VALUES (?, ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur");
+      db.transaction(() => {
+        stmt.run("frais_inscription", String(frais_inscription));
+        stmt.run("mensualite", String(mensualite));
+      })();
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: "Impossible de modifier la configuration : " + error.message });
+    }
+  });
+
+  // --- PAIEMENTS ELEVES ROUTES ---
+  app.get("/api/paiements", (req, res) => {
+    try {
+      const rows = db.prepare(`
+        SELECT paiements_eleves.*, 
+               eleves.nom as eleve_nom, 
+               eleves.prenom as eleve_prenom, 
+               eleves.matricule as eleve_matricule
+        FROM paiements_eleves
+        JOIN eleves ON paiements_eleves.eleve_id = eleves.id
+        ORDER BY paiements_eleves.date_paiement DESC
+      `).all();
+      res.json(rows);
+    } catch (error: any) {
+      res.status(500).json({ error: "Erreur lors du chargement des paiements : " + error.message });
+    }
+  });
+
+  app.get("/api/eleves/:id/paiements", (req, res) => {
+    const { id } = req.params;
+    try {
+      const rows = db.prepare(`
+        SELECT * FROM paiements_eleves 
+        WHERE eleve_id = ?
+        ORDER BY date_paiement DESC
+      `).all(id);
+      res.json(rows);
+    } catch (error: any) {
+      res.status(500).json({ error: "Erreur lors du chargement des paiements de l'élève : " + error.message });
+    }
+  });
+
+  app.post("/api/eleves/:id/paiements", (req, res) => {
+    const { id } = req.params;
+    const { type_paiement, mois, montant } = req.body;
+    
+    // Générer un reçu unique
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    const recu_numero = `REC-PAI-${dateStr}-${rand}`;
+    
+    try {
+      // Check if student exists and is paying
+      const eleve = db.prepare("SELECT type_eleve FROM eleves WHERE id = ?").get(id) as any;
+      if (!eleve) {
+        return res.status(404).json({ error: "Élève non trouvé." });
+      }
+      if (eleve.type_eleve !== 'Payant') {
+        return res.status(400).json({ error: "Cet élève est enregistré comme Gratuit. Modifiez son profil pour enregistrer un paiement." });
+      }
+
+      // S'il s'agit d'une mensualité, vérifier si elle a déjà été payée pour ce mois
+      if (type_paiement === 'Mensualité') {
+        if (!mois) {
+          return res.status(400).json({ error: "Le mois est requis pour une mensualité." });
+        }
+        const existing = db.prepare("SELECT id FROM paiements_eleves WHERE eleve_id = ? AND type_paiement = 'Mensualité' AND mois = ?").get(id, mois);
+        if (existing) {
+          return res.status(400).json({ error: `La mensualité de ${mois} a déjà été payée pour cet élève.` });
+        }
+      } else if (type_paiement === 'Inscription') {
+        const existing = db.prepare("SELECT id FROM paiements_eleves WHERE eleve_id = ? AND type_paiement = 'Inscription'").get(id);
+        if (existing) {
+          return res.status(400).json({ error: "Les frais d'inscription ont déjà été payés pour cet élève." });
+        }
+      }
+
+      const stmt = db.prepare(`
+        INSERT INTO paiements_eleves (eleve_id, type_paiement, mois, montant, date_paiement, recu_numero)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      const info = stmt.run(id, type_paiement, mois || null, montant, now.toISOString(), recu_numero);
+      res.status(201).json({ id: info.lastInsertRowid, recu_numero });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/paiements/:id", (req, res) => {
+    const { id } = req.params;
+    try {
+      db.prepare('DELETE FROM paiements_eleves WHERE id = ?').run(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // --- Gestion des Paies du Personnel ---
+  app.get("/api/paies", (req, res) => {
+    try {
+      const rows = db.prepare('SELECT * FROM paies_personnel ORDER BY date_paiement DESC').all();
+      res.json(rows);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/paies", (req, res) => {
+    const { enseignant_id, nom, prenom, role_personnel, mois, montant } = req.body;
+    try {
+      const recu_numero = `PAY-${Date.now().toString().slice(-4)}`;
+      const stmt = db.prepare(`
+        INSERT INTO paies_personnel (enseignant_id, nom, prenom, role_personnel, mois, montant, date_paiement, recu_numero)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      const info = stmt.run(
+        enseignant_id || null,
+        nom,
+        prenom,
+        role_personnel,
+        mois,
+        montant,
+        new Date().toISOString(),
+        recu_numero
+      );
+
+      // Si c'est un enseignant, on met à jour son statut_paiement_mois
+      if (role_personnel === 'Enseignant' && enseignant_id) {
+        db.prepare("UPDATE enseignants SET statut_paiement_mois = 'Payé' WHERE id = ?").run(enseignant_id);
+      }
+
+      res.status(201).json({ id: info.lastInsertRowid, recu_numero });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/paies/:id", (req, res) => {
+    const { id } = req.params;
+    try {
+      const paie = db.prepare("SELECT role_personnel, enseignant_id FROM paies_personnel WHERE id = ?").get(id) as any;
+      if (paie && paie.role_personnel === 'Enseignant' && paie.enseignant_id) {
+        db.prepare("UPDATE enseignants SET statut_paiement_mois = 'En attente' WHERE id = ?").run(paie.enseignant_id);
+      }
+      db.prepare('DELETE FROM paies_personnel WHERE id = ?').run(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
 
   // 7. Articles & Mouvements de stock
   app.get("/api/categories-logistique", (req, res) => {
@@ -652,6 +877,24 @@ async function startServer() {
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/utilisateurs/:id/password", (req, res) => {
+    const { id } = req.params;
+    const { ancien_mot_de_passe, nouveau_mot_de_passe } = req.body;
+    try {
+      const user = db.prepare("SELECT * FROM utilisateurs WHERE id = ?").get(id) as any;
+      if (!user) {
+        return res.status(404).json({ error: "Utilisateur non trouvé." });
+      }
+      if (user.mot_de_passe !== ancien_mot_de_passe) {
+        return res.status(400).json({ error: "Le mot de passe actuel est incorrect." });
+      }
+      db.prepare("UPDATE utilisateurs SET mot_de_passe = ? WHERE id = ?").run(nouveau_mot_de_passe, id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 

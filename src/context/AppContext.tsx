@@ -13,7 +13,10 @@ import {
   Utilisateur,
   LogActivite,
   UserRole,
-  Role
+  Role,
+  PaiementEleve,
+  ScolariteConfig,
+  Paie
 } from '../types';
 import { translations, Language } from '../lib/translations';
 
@@ -34,6 +37,9 @@ interface AppState {
   isAuthenticated: boolean;
   categoriesLogistique: string[];
   roles: Role[];
+  paiements: PaiementEleve[];
+  config: ScolariteConfig;
+  paies: Paie[];
 }
 
 interface AppContextType extends AppState {
@@ -64,6 +70,12 @@ interface AppContextType extends AppState {
   addRole: (role: Omit<Role, 'id'>) => Promise<boolean>;
   updateRole: (role: Role) => Promise<boolean>;
   deleteRole: (id: number) => Promise<boolean>;
+  changePassword: (userId: number, currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  addPaiement: (paiement: Omit<PaiementEleve, 'id' | 'date_paiement' | 'recu_numero'>) => Promise<boolean>;
+  deletePaiement: (id: number) => Promise<boolean>;
+  updateConfig: (newConfig: ScolariteConfig) => Promise<boolean>;
+  addPaie: (paie: Omit<Paie, 'id' | 'date_paiement' | 'recu_numero'>) => Promise<boolean>;
+  deletePaie: (id: number) => Promise<boolean>;
 }
 
 const AppContext = React.createContext<AppContextType | undefined>(undefined);
@@ -101,6 +113,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: false,
     categoriesLogistique: [],
     roles: [],
+    paiements: [],
+    config: { frais_inscription: 10000, mensualite: 5000 },
+    paies: []
   });
 
   // Charger toutes les données depuis le backend
@@ -110,7 +125,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         elevesRes, enseignantsRes, articlesRes, mouvementsRes,
         fichesRes, consultationsRes, templatesRes, logsRes,
         donsRes, depensesRes, utilisateursRes, auditLogsRes,
-        categoriesRes, rolesRes
+        categoriesRes, rolesRes, configRes, paiementsRes, paiesRes
       ] = await Promise.all([
         fetch('/api/eleves').then(r => r.json()),
         fetch('/api/enseignants').then(r => r.json()),
@@ -125,7 +140,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         fetch('/api/utilisateurs').then(r => r.json()),
         fetch('/api/audit-logs').then(r => r.json()),
         fetch('/api/categories-logistique').then(r => r.json()),
-        fetch('/api/roles').then(r => r.json())
+        fetch('/api/roles').then(r => r.json()),
+        fetch('/api/config').then(r => r.json()),
+        fetch('/api/paiements').then(r => r.json()),
+        fetch('/api/paies').then(r => r.json())
       ]);
 
       setState(prev => ({
@@ -143,7 +161,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         utilisateurs: utilisateursRes,
         auditLogs: auditLogsRes,
         categoriesLogistique: Array.isArray(categoriesRes) ? categoriesRes : [],
-        roles: Array.isArray(rolesRes) ? rolesRes : []
+        roles: Array.isArray(rolesRes) ? rolesRes : [],
+        config: configRes && configRes.frais_inscription !== undefined ? configRes : { frais_inscription: 10000, mensualite: 5000 },
+        paiements: Array.isArray(paiementsRes) ? paiementsRes : [],
+        paies: Array.isArray(paiesRes) ? paiesRes : []
       }));
     } catch (err) {
       console.error('Erreur lors du chargement des données API :', err);
@@ -187,6 +208,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setState(prev => ({ ...prev, currentUser: null, isAuthenticated: false }));
+  };
+
+  const changePassword = async (userId: number, currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch(`/api/utilisateurs/${userId}/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          ancien_mot_de_passe: currentPassword, 
+          nouveau_mot_de_passe: newPassword 
+        })
+      });
+      if (res.ok) {
+        // Journaliser le changement de mot de passe dans l'audit log
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            utilisateur_id: userId,
+            action: "A modifié son mot de passe",
+            adresse_ip: "127.0.0.1"
+          })
+        });
+        return { success: true };
+      } else {
+        const data = await res.json();
+        return { success: false, error: data.error || "Erreur serveur" };
+      }
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: "Erreur de connexion réseau" };
+    }
   };
 
   const canAccess = (tabId: string): boolean => {
@@ -610,6 +663,149 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const addPaiement = async (paiement: Omit<PaiementEleve, 'id' | 'date_paiement' | 'recu_numero'>): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/eleves/${paiement.eleve_id}/paiements`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type_paiement: paiement.type_paiement,
+          mois: paiement.mois,
+          montant: paiement.montant
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Log Audit
+        const targetEleve = state.eleves.find(e => e.id === paiement.eleve_id);
+        const nameStr = targetEleve ? `${targetEleve.prenom} ${targetEleve.nom}` : `ID: ${paiement.eleve_id}`;
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            utilisateur_id: state.currentUser?.id || 0,
+            action: `A enregistré un paiement de ${paiement.type_paiement} (${paiement.montant.toLocaleString()} CFA) pour l'élève ${nameStr}`
+          })
+        });
+        await refreshData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
+  const deletePaiement = async (id: number): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/paiements/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        // Log Audit
+        const targetPaiement = state.paiements.find(p => p.id === id);
+        const amtStr = targetPaiement ? `${targetPaiement.montant.toLocaleString()} CFA` : '';
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            utilisateur_id: state.currentUser?.id || 0,
+            action: `A supprimé/annulé le paiement de scolarité ID: ${id} d'un montant de ${amtStr}`
+          })
+        });
+        await refreshData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
+  const addPaie = async (paie: Omit<Paie, 'id' | 'date_paiement' | 'recu_numero'>): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/paies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(paie)
+      });
+      if (res.ok) {
+        // Log Audit
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            utilisateur_id: state.currentUser?.id || 0,
+            action: `A enregistré une paie de ${paie.montant.toLocaleString()} CFA pour ${paie.prenom} ${paie.nom} (${paie.role_personnel})`
+          })
+        });
+        await refreshData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
+  const deletePaie = async (id: number): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/paies/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        // Log Audit
+        const targetPaie = state.paies.find(p => p.id === id);
+        const nameStr = targetPaie ? `${targetPaie.prenom} ${targetPaie.nom}` : `ID: ${id}`;
+        const amtStr = targetPaie ? `${targetPaie.montant.toLocaleString()} CFA` : '';
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            utilisateur_id: state.currentUser?.id || 0,
+            action: `A supprimé la paie de ${nameStr} d'un montant de ${amtStr}`
+          })
+        });
+        await refreshData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
+  const updateConfig = async (newConfig: ScolariteConfig): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newConfig)
+      });
+      if (res.ok) {
+        // Log Audit
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            utilisateur_id: state.currentUser?.id || 0,
+            action: `A mis à jour les tarifs de scolarité : Inscription = ${newConfig.frais_inscription} CFA, Mensualité = ${newConfig.mensualite} CFA`
+          })
+        });
+        await refreshData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
   return (
     <AppContext.Provider value={{ 
       ...state, 
@@ -639,7 +835,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       deleteEnseignant,
       addRole,
       updateRole,
-      deleteRole
+      deleteRole,
+      changePassword,
+      addPaiement,
+      deletePaiement,
+      updateConfig,
+      addPaie,
+      deletePaie
     }}>
       {children}
     </AppContext.Provider>

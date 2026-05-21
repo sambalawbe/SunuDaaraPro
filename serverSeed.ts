@@ -43,13 +43,13 @@ export function seedDatabase(db: Database.Database) {
   if (elevesCount.count === 0) {
     console.log('🌱 Seeding eleves...');
     const insertEleve = db.prepare(`
-      INSERT INTO eleves (matricule, nom, prenom, photo_url, contact_parent, tuteur_nom, niveau_actuel, niveau_hizb, dernier_verset, points_tarbyya, statut_pension, statut_prise_en_charge, statut, dortoir_id, lit_numero, enseignant_id, date_inscription)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO eleves (matricule, nom, prenom, photo_url, contact_parent, tuteur_nom, niveau_actuel, niveau_hizb, dernier_verset, points_tarbyya, statut_pension, statut_prise_en_charge, statut, dortoir_id, lit_numero, enseignant_id, date_inscription, type_eleve)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     // Dortoir Al-Azhar (ID 1) Lit 1, Enseignant Oumar Diallo (ID 1)
-    insertEleve.run('DAARA-2024-001', 'DIOUF', 'Moustapha', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Moustapha', '+221 77 123 45 67', 'Abdou Diouf', 'Intermédiaire', 30, 'Sourate Al-Baqarah, Verset 255', 110, 'Interne', 'Parrainé', 'Actif', 1, 1, 1, '2024-01-15');
+    insertEleve.run('DAARA-2024-001', 'DIOUF', 'Moustapha', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Moustapha', '+221 77 123 45 67', 'Abdou Diouf', 'Intermédiaire', 30, 'Sourate Al-Baqarah, Verset 255', 110, 'Interne', 'Parrainé', 'Actif', 1, 1, 1, '2024-01-15', 'Payant');
     // Dortoir Medina (ID 2) Lit 3, Enseignant Moussa Sane (ID 2)
-    insertEleve.run('DAARA-2024-002', 'FALL', 'Ibrahima', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ibrahima', '+221 78 987 65 43', 'Fatou Fall', 'Débutant', 5, 'Sourate An-Nas', 95, 'Externe', 'En recherche', 'Actif', 2, 3, 2, '2024-02-10');
+    insertEleve.run('DAARA-2024-002', 'FALL', 'Ibrahima', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ibrahima', '+221 78 987 65 43', 'Fatou Fall', 'Débutant', 5, 'Sourate An-Nas', 95, 'Externe', 'En recherche', 'Actif', 2, 3, 2, '2024-02-10', 'Gratuit');
   }
 
   // 5. Articles
@@ -165,5 +165,42 @@ export function seedDatabase(db: Database.Database) {
     insertActivity.run(1, 'A enregistré un don de 500 000 CFA', '2024-05-18T09:30:00Z', '192.168.1.10');
     insertActivity.run(2, 'A mis à jour le stock de riz (+50 sacs)', '2024-05-18T08:15:00Z', '192.168.1.15');
     insertActivity.run(1, 'A créé un nouveau compte utilisateur (Fatou Fall)', '2024-05-17T14:20:00Z', '192.168.1.10');
+  }
+
+  // 14. Configuration par défaut
+  const configCount = db.prepare('SELECT COUNT(*) as count FROM configuration').get() as any;
+  if (configCount.count === 0) {
+    console.log('🌱 Seeding configuration...');
+    const insertConfig = db.prepare('INSERT INTO configuration (cle, valeur) VALUES (?, ?)');
+    insertConfig.run('frais_inscription', '10000');
+    insertConfig.run('mensualite', '5000');
+  }
+
+  // S'assurer qu'au moins un élève est configuré comme payant pour tester si la BDD est déjà existante
+  const payantEleveCount = db.prepare("SELECT COUNT(*) as count FROM eleves WHERE type_eleve = 'Payant'").get() as any;
+  if (payantEleveCount.count === 0) {
+    const firstEleve = db.prepare("SELECT id FROM eleves LIMIT 1").get() as any;
+    if (firstEleve) {
+      db.prepare("UPDATE eleves SET type_eleve = 'Payant' WHERE id = ?").run(firstEleve.id);
+      console.log(`✅ Set student ID ${firstEleve.id} as 'Payant' for demo/test purposes.`);
+    }
+  }
+
+  // 15. Paiements d'élèves (si vide)
+  const paymentsCount = db.prepare('SELECT COUNT(*) as count FROM paiements_eleves').get() as any;
+  if (paymentsCount.count === 0) {
+    const elevePayant = db.prepare("SELECT id FROM eleves WHERE type_eleve = 'Payant' LIMIT 1").get() as any;
+    if (elevePayant) {
+      console.log('🌱 Seeding paiements_eleves...');
+      const insertPaiement = db.prepare(`
+        INSERT INTO paiements_eleves (eleve_id, type_paiement, mois, montant, date_paiement, recu_numero)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      const currentYear = new Date().getFullYear();
+      insertPaiement.run(elevePayant.id, 'Inscription', null, 10000, `${currentYear}-01-05T09:00:00Z`, `REC-PAI-${currentYear}0105-1001`);
+      insertPaiement.run(elevePayant.id, 'Mensualité', `${currentYear}-01`, 5000, `${currentYear}-01-10T10:00:00Z`, `REC-PAI-${currentYear}0110-1002`);
+      insertPaiement.run(elevePayant.id, 'Mensualité', `${currentYear}-02`, 5000, `${currentYear}-02-10T10:00:00Z`, `REC-PAI-${currentYear}0210-1003`);
+      insertPaiement.run(elevePayant.id, 'Mensualité', `${currentYear}-03`, 5000, `${currentYear}-03-10T10:00:00Z`, `REC-PAI-${currentYear}0310-1004`);
+    }
   }
 }

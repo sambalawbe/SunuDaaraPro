@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS eleves (
     dortoir_id INTEGER,
     lit_numero INTEGER,
     enseignant_id INTEGER,
+    type_eleve TEXT CHECK(type_eleve IN ('Payant', 'Gratuit')) DEFAULT 'Gratuit',
     date_inscription TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (dortoir_id) REFERENCES dortoirs(id),
     FOREIGN KEY (enseignant_id) REFERENCES enseignants(id)
@@ -170,3 +171,35 @@ CREATE TABLE IF NOT EXISTS depenses (
     date_depense TEXT DEFAULT CURRENT_TIMESTAMP,
     justificatif_url TEXT
 );
+
+-- Table de configuration globale
+CREATE TABLE IF NOT EXISTS configuration (
+    cle TEXT PRIMARY KEY,
+    valeur TEXT NOT NULL
+);
+
+-- Table des paiements d'élèves
+CREATE TABLE IF NOT EXISTS paiements_eleves (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    eleve_id INTEGER NOT NULL,
+    type_paiement TEXT CHECK(type_paiement IN ('Inscription', 'Mensualité')) NOT NULL,
+    mois TEXT, -- Format 'YYYY-MM'
+    montant INTEGER NOT NULL,
+    date_paiement TEXT DEFAULT CURRENT_TIMESTAMP,
+    recu_numero TEXT UNIQUE NOT NULL,
+    FOREIGN KEY (eleve_id) REFERENCES eleves(id) ON DELETE CASCADE
+);
+
+-- Table des paies du personnel
+CREATE TABLE IF NOT EXISTS paies_personnel (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    enseignant_id INTEGER REFERENCES enseignants(id) ON DELETE SET NULL,
+    nom TEXT NOT NULL,
+    prenom TEXT NOT NULL,
+    role_personnel TEXT CHECK(role_personnel IN ('Enseignant', 'Surveillant', 'Administrateur', 'Vigile', 'Cuisinière', 'Laveuse')) NOT NULL,
+    mois TEXT NOT NULL, -- Format 'YYYY-MM'
+    montant INTEGER NOT NULL,
+    date_paiement TEXT DEFAULT CURRENT_TIMESTAMP,
+    recu_numero TEXT UNIQUE NOT NULL
+);
+

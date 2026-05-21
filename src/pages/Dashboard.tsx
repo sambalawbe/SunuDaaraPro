@@ -92,7 +92,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ onNavigate }: DashboardProps) {
-  const { eleves, enseignants, articles, consultations, mouvements, logs, dons, depenses, t } = useApp();
+  const { eleves, enseignants, articles, consultations, mouvements, logs, dons, depenses, paiements, paies, t } = useApp();
 
   // Calcul des statistiques dynamiques
   const totalEleves = eleves.length;
@@ -102,15 +102,32 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   // Finances
   const totalDons = dons.reduce((sum, d) => sum + d.montant, 0);
   const totalDepenses = depenses.reduce((sum, d) => sum + d.montant, 0);
-  const soldeCaisse = totalDons - totalDepenses;
+  const totalPaiements = (paiements || []).reduce((sum, p) => sum + p.montant, 0);
+  const totalPaies = (paies || []).reduce((sum, p) => sum + p.montant, 0);
+  const soldeCaisse = totalDons + totalPaiements - totalDepenses - totalPaies;
 
   const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
   const donsMois = dons
-    .filter(d => new Date(d.date_don).getMonth() === currentMonth)
+    .filter(d => {
+      const date = new Date(d.date_don);
+      return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+    })
     .reduce((sum, d) => sum + d.montant, 0);
+
   const depensesMois = depenses
-    .filter(d => new Date(d.date_depense).getMonth() === currentMonth)
-    .reduce((sum, d) => sum + d.montant, 0);
+    .filter(d => {
+      const date = new Date(d.date_depense);
+      return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+    })
+    .reduce((sum, d) => sum + d.montant, 0) +
+    (paies || [])
+    .filter(p => {
+      const date = new Date(p.date_paiement);
+      return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+    })
+    .reduce((sum, p) => sum + p.montant, 0);
 
   // Seuil critique fund alert (ex: less than 200,000 CFA for demonstration)
   const isBudgetLow = soldeCaisse < 200000;

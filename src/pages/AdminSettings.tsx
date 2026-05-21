@@ -16,7 +16,8 @@ import {
   Download,
   Plus,
   Edit3,
-  ShieldAlert
+  ShieldAlert,
+  CreditCard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
@@ -59,10 +60,12 @@ export function AdminSettings() {
     roles,
     addRole,
     updateRole,
-    deleteRole
+    deleteRole,
+    config,
+    updateConfig
   } = useApp();
   
-  const [activeTab, setActiveTab] = React.useState<'users' | 'roles' | 'logs' | 'backup'>('users');
+  const [activeTab, setActiveTab] = React.useState<'users' | 'roles' | 'logs' | 'backup' | 'scolarite'>('users');
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = React.useState(false);
   const [editingRole, setEditingRole] = React.useState<Role | null>(null);
@@ -213,6 +216,16 @@ export function AdminSettings() {
         >
           <Database className="w-4 h-4" />
           Sauvegarde (Backup)
+        </button>
+        <button 
+          onClick={() => setActiveTab('scolarite')}
+          className={cn(
+            "px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2",
+            activeTab === 'scolarite' ? "bg-slate-900 text-white shadow-lg" : "text-gray-400 hover:text-gray-600"
+          )}
+        >
+          <CreditCard className="w-4 h-4" />
+          Frais Scolaires
         </button>
       </div>
 
@@ -542,6 +555,73 @@ export function AdminSettings() {
               <Download className="w-4 h-4" />
               {t('db_download_btn')}
             </button>
+          </motion.div>
+        )}
+
+        {activeTab === 'scolarite' && (
+          <motion.div 
+            key="scolarite"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 text-black max-w-2xl space-y-6"
+          >
+            <div className="flex items-start gap-4">
+              <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl shrink-0">
+                <CreditCard className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">{t('config_school_fees')}</h3>
+                <p className="text-xs text-slate-400 mt-1">Configurez les tarifs d'inscription et mensualités de scolarité globaux pour le Daara.</p>
+              </div>
+            </div>
+
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const frais_inscription = Number(formData.get('frais_inscription') || 0);
+                const mensualite = Number(formData.get('mensualite') || 0);
+                const success = await updateConfig({ frais_inscription, mensualite });
+                if (success) {
+                  alert(t('save_config_success'));
+                } else {
+                  alert("Erreur lors de la mise à jour des tarifs.");
+                }
+              }} 
+              className="space-y-4 font-medium"
+            >
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase">{t('registration_fee')} (CFA)</label>
+                <input 
+                  type="number" 
+                  name="frais_inscription" 
+                  required 
+                  min="0"
+                  defaultValue={config.frais_inscription} 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500/20 text-sm" 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase">{t('monthly_fee')} (CFA)</label>
+                <input 
+                  type="number" 
+                  name="mensualite" 
+                  required 
+                  min="0"
+                  defaultValue={config.mensualite} 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500/20 text-sm" 
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="w-full bg-slate-900 text-white rounded-[20px] py-4 font-bold text-sm shadow-xl shadow-slate-900/10 hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer mt-2"
+              >
+                {t('save')}
+              </button>
+            </form>
           </motion.div>
         )}
       </AnimatePresence>

@@ -16,7 +16,12 @@ import {
   ChevronDown,
   LogOut,
   ShieldCheck,
-  Globe
+  Globe,
+  Lock,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
@@ -66,6 +71,8 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
   const [collapsed, setCollapsed] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isLangDropdownOpen, setIsLangDropdownOpen] = React.useState(false);
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = React.useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = React.useState(false);
 
   const menuItems = [
     { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard },
@@ -220,19 +227,65 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
             </button>
             <div className="h-8 w-px bg-gray-200 mx-1 hidden sm:block" />
-            <button 
-              onClick={() => logout()}
-              className="flex items-center gap-3 p-1 pl-1 pr-2 hover:bg-red-50 rounded-full transition-all group"
-            >
-              <div className="w-8 h-8 rounded-full bg-green-100 group-hover:bg-red-100 flex items-center justify-center text-green-700 group-hover:text-red-700 font-semibold border border-green-200 group-hover:border-red-200">
-                {currentUser?.prenom[0]}{currentUser?.nom[0]}
-              </div>
-              <div className="hidden md:block text-left">
-                <p className="text-sm font-semibold text-gray-700 leading-tight group-hover:text-red-700 transition-colors">{currentUser?.prenom} {currentUser?.nom}</p>
-                <p className="text-xs text-gray-400 capitalize">{currentUser?.role.toLowerCase().replace('_', ' ')}</p>
-              </div>
-              <LogOut className="w-4 h-4 text-gray-400 group-hover:text-red-500" />
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                className="flex items-center gap-3 p-1 pl-1 pr-2 hover:bg-gray-50 rounded-full transition-all group border border-transparent hover:border-gray-200"
+              >
+                <div className="w-8 h-8 rounded-full bg-green-100 group-hover:bg-green-200 flex items-center justify-center text-green-700 font-semibold border border-green-200">
+                  {currentUser ? `${currentUser.prenom[0]}${currentUser.nom[0]}` : ''}
+                </div>
+                <div className="hidden md:block text-left">
+                  <p className="text-sm font-semibold text-gray-700 leading-tight transition-colors">{currentUser?.prenom} {currentUser?.nom}</p>
+                  <p className="text-xs text-gray-400 capitalize">{currentUser?.role.toLowerCase().replace('_', ' ')}</p>
+                </div>
+                <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+              </button>
+
+              <AnimatePresence>
+                {isUserDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setIsUserDropdownOpen(false)} />
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-2xl shadow-xl z-40 p-2 flex flex-col gap-1"
+                    >
+                      <div className="px-3 py-2 border-b border-gray-100 mb-1">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{t('status')}</p>
+                        <p className="text-sm font-bold text-gray-800 truncate">{currentUser?.prenom} {currentUser?.nom}</p>
+                        <p className="text-xs text-gray-500 truncate">{currentUser?.email}</p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsPasswordModalOpen(true);
+                          setIsUserDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50 hover:text-green-700 transition-colors flex items-center gap-2"
+                      >
+                        <Lock className="w-4 h-4 text-gray-400" />
+                        <span>{t('change_password')}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          logout();
+                          setIsUserDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+                      >
+                        <LogOut className="w-4 h-4 text-red-400" />
+                        <span>{t('logout')}</span>
+                      </button>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
 
@@ -300,6 +353,200 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
           </>
         )}
       </AnimatePresence>
+
+      {/* Change Password Modal */}
+      <AnimatePresence>
+        {isPasswordModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setIsPasswordModalOpen(false)} 
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" 
+            />
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }} 
+              exit={{ scale: 0.95, opacity: 0 }} 
+              className="relative w-full max-w-md bg-white rounded-[32px] shadow-2xl p-8 overflow-hidden z-50 text-slate-800"
+            >
+              <div className="absolute top-0 right-0 p-6">
+                <Lock className="w-12 h-12 text-slate-50 opacity-10 rotate-12" />
+              </div>
+              
+              <h2 className="text-xl font-bold text-slate-900 mb-1">{t('change_password')}</h2>
+              <p className="text-xs text-slate-400 mb-6 italic">Modifiez votre accès pour plus de sécurité.</p>
+
+              <PasswordForm onClose={() => setIsPasswordModalOpen(false)} />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+interface PasswordFormProps {
+  onClose: () => void;
+}
+
+function PasswordForm({ onClose }: PasswordFormProps) {
+  const { changePassword, currentUser, t } = useApp();
+  const [currentPassword, setCurrentPassword] = React.useState('');
+  const [newPassword, setNewPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = React.useState(false);
+  const [showNewPassword, setShowNewPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [success, setSuccess] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+    
+    if (newPassword !== confirmPassword) {
+      setError(t('password_error_mismatch'));
+      return;
+    }
+
+    if (newPassword.length < 4) {
+      setError('Le nouveau mot de passe doit comporter au moins 4 caractères.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+    setSuccess(false);
+
+    try {
+      const result = await changePassword(currentUser.id, currentPassword, newPassword);
+      if (result.success) {
+        setSuccess(true);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+      } else {
+        setError(result.error === 'Le mot de passe actuel est incorrect.' ? t('password_error_incorrect') : (result.error || 'Une erreur est survenue.'));
+      }
+    } catch (err) {
+      setError('Une erreur réseau est survenue.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="bg-red-50 border border-red-100 p-3.5 rounded-xl flex items-center gap-2.5 text-red-600 text-xs font-bold">
+          <AlertCircle className="w-4.5 h-4.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-50 border border-green-100 p-3.5 rounded-xl flex items-center gap-2.5 text-green-600 text-xs font-bold">
+          <CheckCircle2 className="w-4.5 h-4.5 shrink-0" />
+          <span>{t('password_changed_success')}</span>
+        </div>
+      )}
+
+      <div className="space-y-1">
+        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">
+          {t('current_password')}
+        </label>
+        <div className="relative">
+          <input 
+            type={showCurrentPassword ? "text" : "password"}
+            required
+            disabled={isLoading || success}
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl pl-4 pr-10 py-3 text-slate-700 text-sm font-medium focus:border-slate-400 outline-none transition-colors"
+          />
+          <button
+            type="button"
+            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          >
+            {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">
+          {t('new_password')}
+        </label>
+        <div className="relative">
+          <input 
+            type={showNewPassword ? "text" : "password"}
+            required
+            disabled={isLoading || success}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl pl-4 pr-10 py-3 text-slate-700 text-sm font-medium focus:border-slate-400 outline-none transition-colors"
+          />
+          <button
+            type="button"
+            onClick={() => setShowNewPassword(!showNewPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          >
+            {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">
+          {t('confirm_password')}
+        </label>
+        <div className="relative">
+          <input 
+            type={showConfirmPassword ? "text" : "password"}
+            required
+            disabled={isLoading || success}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl pl-4 pr-10 py-3 text-slate-700 text-sm font-medium focus:border-slate-400 outline-none transition-colors"
+          />
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          >
+            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      <div className="pt-4 flex gap-3">
+        <button 
+          type="button" 
+          disabled={isLoading || success}
+          onClick={onClose} 
+          className="flex-1 py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors text-xs cursor-pointer disabled:opacity-50"
+        >
+          {t('cancel')}
+        </button>
+        <button 
+          type="submit" 
+          disabled={isLoading || success}
+          className="flex-1 bg-slate-900 text-white rounded-xl py-3 text-xs font-bold shadow-lg shadow-slate-900/10 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {isLoading ? (
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            t('save')
+          )}
+        </button>
+      </div>
+    </form>
   );
 }
