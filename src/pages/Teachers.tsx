@@ -15,12 +15,16 @@ import {
   Edit2,
   Trash2,
   ChevronRight,
-  ArrowRight
+  ArrowRight,
+  BarChart2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { Enseignant } from '@/src/types';
 import { useApp } from '../context/AppContext';
+import { AvatarSelector } from '../components/AvatarSelector';
 
 export function Teachers() {
   const { enseignants, eleves, addEnseignant, updateEnseignant, deleteEnseignant, t, language, searchQuery, setSearchQuery } = useApp();
@@ -31,6 +35,25 @@ export function Teachers() {
 
   const [specialiteFilter, setSpecialiteFilter] = React.useState('Tous');
   const [statutFilter, setStatutFilter] = React.useState('Tous');
+  const [isStatsExpanded, setIsStatsExpanded] = React.useState(true);
+  const [photoUrl, setPhotoUrl] = React.useState('');
+
+  // Calcul de la répartition des élèves par enseignant
+  const stats = React.useMemo(() => {
+    const total = eleves?.length || 0;
+    const assigned = (eleves || []).filter(e => e.enseignant_id !== null && e.enseignant_id !== undefined && e.enseignant_id !== 0).length;
+    const unassigned = total - assigned;
+    
+    const activeTeachersCount = (enseignants || []).filter(t => t.statut === 'Actif').length;
+    const avg = activeTeachersCount > 0 ? (assigned / activeTeachersCount).toFixed(1) : '0';
+
+    return {
+      total,
+      assigned,
+      unassigned,
+      avg
+    };
+  }, [eleves, enseignants]);
 
   // Extract unique specialties from teachers list
   const specialties = React.useMemo(() => {
@@ -60,6 +83,7 @@ export function Teachers() {
     setSelectedTeacher(null);
     setModalMode('add');
     setIsModalOpen(true);
+    setPhotoUrl('');
   };
 
   const openEditModal = (e: React.MouseEvent, teacher: Enseignant) => {
@@ -67,6 +91,7 @@ export function Teachers() {
     setSelectedTeacher(teacher);
     setModalMode('edit');
     setIsModalOpen(true);
+    setPhotoUrl(teacher.photo_url || '');
   };
 
   const openDrawer = (teacher: Enseignant) => {
@@ -88,7 +113,7 @@ export function Teachers() {
       competences: (formData.get('competences') as string) || '',
       statut: (selectedTeacher?.statut || 'Actif') as 'Actif' | 'Inactif',
       statut_paiement_mois: (selectedTeacher?.statut_paiement_mois || 'En attente') as 'Payé' | 'En attente',
-      photo_url: selectedTeacher?.photo_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.get('prenom')}`
+      photo_url: photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.get('prenom')}`
     };
 
     if (modalMode === 'add') {
@@ -136,6 +161,118 @@ export function Teachers() {
           <Plus className="w-5 h-5" />
           <span>{t('new_teacher')}</span>
         </button>
+      </div>
+
+      {/* Analytics & Distribution Section */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setIsStatsExpanded(!isStatsExpanded)}
+          className="w-full px-6 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100/70 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-green-50 rounded-lg text-green-700 shrink-0">
+              <BarChart2 className="w-5 h-5" />
+            </div>
+            <div className="text-left rtl:text-right">
+              <h2 className="font-bold text-gray-800 text-sm md:text-base">{t('student_distribution')}</h2>
+              <p className="text-xs text-gray-400">{t('distribution_subtitle')}</p>
+            </div>
+          </div>
+          <div className="text-gray-400">
+            {isStatsExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          </div>
+        </button>
+
+        <AnimatePresence initial={false}>
+          {isStatsExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="border-t border-gray-100 overflow-hidden"
+            >
+              <div className="p-6 space-y-6">
+                {/* Metrics Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">{t('assigned')}</p>
+                      <p className="text-2xl font-black text-gray-800 mt-1">{stats.assigned}</p>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-green-100/50 flex items-center justify-center text-green-700 text-xs font-bold shrink-0">
+                      {stats.total > 0 ? Math.round((stats.assigned / stats.total) * 100) : 0}%
+                    </div>
+                  </div>
+                  <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">{t('unassigned')}</p>
+                      <p className="text-2xl font-black text-gray-800 mt-1">{stats.unassigned}</p>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-orange-100/50 flex items-center justify-center text-orange-700 text-xs font-bold shrink-0">
+                      {stats.total > 0 ? Math.round((stats.unassigned / stats.total) * 100) : 0}%
+                    </div>
+                  </div>
+                  <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                    <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">{t('average_students')}</p>
+                    <p className="text-2xl font-black text-gray-800 mt-1">{stats.avg}</p>
+                  </div>
+                </div>
+
+                {/* Distribution Bars */}
+                <div className="space-y-4">
+                  {enseignants && enseignants.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {enseignants.map((teacher) => {
+                        const count = (eleves || []).filter(e => e.enseignant_id === teacher.id).length;
+                        const percent = stats.assigned > 0 ? (count / stats.assigned) * 100 : 0;
+                        
+                        return (
+                          <div
+                            key={teacher.id}
+                            className="p-4 bg-white rounded-xl border border-gray-100 hover:border-green-100 hover:shadow-sm transition-all duration-200 flex items-center gap-4 group"
+                          >
+                            <img
+                              src={teacher.photo_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${teacher.prenom}`}
+                              alt={teacher.nom}
+                              className="w-10 h-10 rounded-xl border border-gray-100 object-cover shrink-0"
+                            />
+                            <div className="flex-1 min-w-0 space-y-1.5">
+                              <div className="flex justify-between items-center text-sm gap-2">
+                                <span className="font-bold text-gray-800 truncate">
+                                  {teacher.prenom} {teacher.nom}
+                                </span>
+                                <span className="font-semibold text-gray-500 shrink-0 text-xs">
+                                  {count} {count > 1 ? t('students').toLowerCase() : t('eleve').toLowerCase()}
+                                </span>
+                              </div>
+                              <div className="relative w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${percent}%` }}
+                                  transition={{ duration: 0.5, ease: 'easeOut' }}
+                                  className="absolute top-0 left-0 rtl:right-0 rtl:left-auto h-full rounded-full bg-gradient-to-r from-green-600 to-emerald-500"
+                                />
+                              </div>
+                            </div>
+                            <div className="text-xs font-bold text-gray-400 group-hover:text-green-600 transition-colors shrink-0 w-8 text-right rtl:text-left">
+                              {Math.round(percent)}%
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-gray-400 text-sm">
+                      {t('no_teachers_found')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Filter Bar */}
@@ -438,6 +575,12 @@ export function Teachers() {
                     <label className="text-xs font-bold text-gray-400 uppercase">{t('skills_qualifications')}</label>
                     <textarea name="competences" rows={3} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 resize-none text-black" defaultValue={selectedTeacher?.competences} />
                   </div>
+                  <AvatarSelector
+                    value={photoUrl}
+                    onChange={setPhotoUrl}
+                    t={t}
+                    defaultCategory="man"
+                  />
                 </div>
 
                 <div className="p-6 border-t border-gray-100 flex justify-end gap-3 shrink-0 bg-gray-50">

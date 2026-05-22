@@ -23,6 +23,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { Eleve, Enseignant } from '@/src/types';
 import { useApp } from '../context/AppContext';
+import { HIZB_LIST, getHizbName } from '../lib/hizbData';
+import { AvatarSelector } from '../components/AvatarSelector';
 
 const ProgressBar = ({ value, max = 60, label }: { value: number; max?: number; label?: string }) => {
   const percentage = Math.min(Math.round((value / max) * 100), 100);
@@ -58,6 +60,7 @@ export function Students() {
   const [activeViewTab, setActiveViewTab] = React.useState<'infos' | 'paiements'>('infos');
   const [levelFilter, setLevelFilter] = React.useState('Tous');
   const [pensionFilter, setPensionFilter] = React.useState('Tous');
+  const [photoUrl, setPhotoUrl] = React.useState('');
 
   const filteredEleves = React.useMemo(() => {
     return eleves.filter(eleve => {
@@ -79,6 +82,7 @@ export function Students() {
     setIsModalOpen(true);
     setActiveFormTab('perso');
     setActiveViewTab('infos');
+    setPhotoUrl(eleve?.photo_url || '');
   };
 
   const getPaiementMensuel = (eleveId: number, monthStr: string) => {
@@ -271,7 +275,7 @@ export function Students() {
       type_eleve: formData.get('type_eleve') as 'Payant' | 'Gratuit',
       statut_prise_en_charge: (selectedEleve?.statut_prise_en_charge || 'En recherche') as 'Parrainé' | 'En recherche',
       statut: (selectedEleve?.statut || 'Actif') as 'Actif' | 'Inactif' | 'Diplômé',
-      photo_url: selectedEleve?.photo_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.get('prenom')}`,
+      photo_url: photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.get('prenom')}`,
       points_tarbyya: selectedEleve?.points_tarbyya || 0,
       dernier_verset: selectedEleve?.dernier_verset || 'Non commencé',
       matricule: selectedEleve?.matricule || `SD-${Date.now().toString().slice(-6)}`
@@ -410,7 +414,7 @@ export function Students() {
                     {eleve.matricule}
                   </td>
                   <td className="px-6 py-4 w-60">
-                    <ProgressBar value={eleve.niveau_hizb} />
+                    <ProgressBar value={eleve.niveau_hizb} label={getHizbName(eleve.niveau_hizb, language, t('not_started'))} />
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
                     {eleve.enseignant_nom}
@@ -530,7 +534,7 @@ export function Students() {
                               {selectedEleve.type_eleve === 'Payant' ? t('paying') : t('free')}
                             </span>
                           </div>
-                          <ProgressBar value={selectedEleve.niveau_hizb} />
+                          <ProgressBar value={selectedEleve.niveau_hizb} label={getHizbName(selectedEleve.niveau_hizb, language, t('not_started'))} />
                         </div>
                       </div>
 
@@ -684,6 +688,12 @@ export function Students() {
                           <label className="text-xs font-bold text-gray-400 uppercase">{t('birth_place')}</label>
                           <input name="lieu_naissance" type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedEleve?.lieu_naissance} />
                         </div>
+                        <AvatarSelector
+                          value={photoUrl}
+                          onChange={setPhotoUrl}
+                          t={t}
+                          defaultCategory="child"
+                        />
                       </div>
 
                       {/* Coran Tab */}
@@ -698,7 +708,19 @@ export function Students() {
                         </div>
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-400 uppercase">{t('hizb_count')}</label>
-                          <input name="niveau_hizb" required type="number" min="0" max="60" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedEleve?.niveau_hizb || 0} />
+                          <select 
+                            name="niveau_hizb" 
+                            required 
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium"
+                            defaultValue={selectedEleve?.niveau_hizb || 0}
+                          >
+                            <option value={0}>{t('not_started')}</option>
+                            {HIZB_LIST.map((hizb) => (
+                              <option key={hizb.id} value={hizb.id}>
+                                {language === 'ar' ? hizb.nameAr : language === 'wo' ? hizb.nameWo : hizb.nameFr}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                         <div className="space-y-2 md:col-span-2">
                           <label className="text-xs font-bold text-gray-400 uppercase">{t('responsible_teacher')}</label>
