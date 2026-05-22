@@ -4,7 +4,7 @@ import { Lock, Mail, Eye, EyeOff, ShieldCheck, ChevronRight, AlertCircle } from 
 import { useApp } from '../context/AppContext';
 
 export function Login() {
-  const { login } = useApp();
+  const { login, t } = useApp();
   const [email, setEmail] = React.useState('admin@sunudaara.sn');
   const [password, setPassword] = React.useState('admin');
   const [showPassword, setShowPassword] = React.useState(false);
@@ -21,10 +21,10 @@ export function Login() {
       await new Promise((resolve) => setTimeout(resolve, 800));
       const success = await login(email, password);
       if (!success) {
-        setError('Email ou mot de passe incorrect. Veuillez réessayer.');
+        setError(t('login_error_credentials'));
       }
     } catch (err) {
-      setError('Une erreur est survenue lors de la connexion.');
+      setError(t('login_error_generic'));
     } finally {
       setIsLoading(false);
     }
@@ -43,7 +43,7 @@ export function Login() {
             <img src="/src/public/LOGO INTERNAT.png" alt="Sama Daara" className="w-16 h-16 object-contain" />
           </motion.div>
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Sunu Daara <span className="text-emerald-600">Pro</span></h1>
-          <p className="text-slate-400 mt-2 text-sm font-medium italic">Système de Gestion d'Internat Social</p>
+          <p className="text-slate-400 mt-2 text-sm font-medium italic">{t('login_subtitle')}</p>
         </div>
 
         <motion.div 
@@ -58,8 +58,8 @@ export function Login() {
           </div>
 
           <div className="relative">
-            <h2 className="text-xl font-bold text-slate-800 mb-1">Connexion Sécurisée</h2>
-            <p className="text-xs text-slate-400 mb-8 font-medium italic">Entrez vos identifiants pour accéder au back-office.</p>
+            <h2 className="text-xl font-bold text-slate-800 mb-1">{t('secure_login')}</h2>
+            <p className="text-xs text-slate-400 mb-8 font-medium italic">{t('login_sub')}</p>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
@@ -74,7 +74,7 @@ export function Login() {
               )}
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-2">Adresse Email</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-2">{t('email_address')}</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
                   <input 
@@ -89,7 +89,7 @@ export function Login() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-2">Mot de passe</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-2">{t('password')}</label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
                   <input 
@@ -113,9 +113,9 @@ export function Login() {
               <div className="flex items-center justify-between px-1">
                 <label className="flex items-center gap-2 cursor-pointer group">
                   <input type="checkbox" className="w-4 h-4 rounded border-slate-200 text-emerald-600 focus:ring-emerald-500/20" />
-                  <span className="text-xs text-slate-500 font-medium group-hover:text-slate-700 transition-colors">Rester connecté</span>
+                  <span className="text-xs text-slate-500 font-medium group-hover:text-slate-700 transition-colors">{t('stay_logged_in')}</span>
                 </label>
-                <button type="button" className="text-xs font-bold text-emerald-600 hover:underline">Oublié ?</button>
+                <button type="button" className="text-xs font-bold text-emerald-600 hover:underline">{t('forgot_password')}</button>
               </div>
 
               <button 
@@ -130,7 +130,7 @@ export function Login() {
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <>
-                    Se connecter
+                    {t('login_button')}
                     <ChevronRight className="w-4 h-4" />
                   </>
                 )}
@@ -141,7 +141,7 @@ export function Login() {
 
         {/* Footer Info */}
         <p className="text-center mt-8 text-[11px] text-slate-400 font-medium uppercase tracking-widest leading-loose">
-          Accès strictement réservé au personnel de l'internat.<br />
+          {t('login_footer_1')}<br />
           © 2024 Sunu Daara Pro - Daara Sama Daara
         </p>
       </div>

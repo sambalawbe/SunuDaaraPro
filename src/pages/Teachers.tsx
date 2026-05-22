@@ -23,11 +23,38 @@ import { Enseignant } from '@/src/types';
 import { useApp } from '../context/AppContext';
 
 export function Teachers() {
-  const { enseignants, eleves, addEnseignant, updateEnseignant, deleteEnseignant } = useApp();
+  const { enseignants, eleves, addEnseignant, updateEnseignant, deleteEnseignant, t, language, searchQuery, setSearchQuery } = useApp();
   const [selectedTeacher, setSelectedTeacher] = React.useState<Enseignant | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const [modalMode, setModalMode] = React.useState<'add' | 'edit'>('add');
+
+  const [specialiteFilter, setSpecialiteFilter] = React.useState('Tous');
+  const [statutFilter, setStatutFilter] = React.useState('Tous');
+
+  // Extract unique specialties from teachers list
+  const specialties = React.useMemo(() => {
+    const specs = new Set<string>();
+    (enseignants || []).forEach(t => {
+      if (t.specialite) specs.add(t.specialite);
+    });
+    return Array.from(specs);
+  }, [enseignants]);
+
+  const filteredTeachers = React.useMemo(() => {
+    return (enseignants || []).filter(teacher => {
+      const nomComplet = `${teacher.prenom} ${teacher.nom}`.toLowerCase();
+      const matchesSearch = nomComplet.includes(searchQuery.toLowerCase()) ||
+                            (teacher.matricule || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            (teacher.specialite || '').toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesSpecialite = specialiteFilter === 'Tous' || teacher.specialite === specialiteFilter;
+      
+      const matchesStatut = statutFilter === 'Tous' || teacher.statut === statutFilter;
+      
+      return matchesSearch && matchesSpecialite && matchesStatut;
+    });
+  }, [enseignants, searchQuery, specialiteFilter, statutFilter]);
 
   const openAddModal = () => {
     setSelectedTeacher(null);
@@ -69,7 +96,7 @@ export function Teachers() {
       if (success) {
         setIsModalOpen(false);
       } else {
-        alert('Erreur lors de la création de l\'enseignant.');
+        alert(t('error_create_teacher'));
       }
     } else if (modalMode === 'edit' && selectedTeacher) {
       const success = await updateEnseignant({
@@ -79,35 +106,35 @@ export function Teachers() {
       if (success) {
         setIsModalOpen(false);
       } else {
-        alert('Erreur lors de la mise à jour de l\'enseignant.');
+        alert(t('error_update_teacher'));
       }
     }
   };
 
   const handleDeleteTeacher = async (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
-    if (confirm('Voulez-vous vraiment supprimer cet enseignant ?')) {
+    if (confirm(t('confirm_delete_teacher'))) {
       const success = await deleteEnseignant(id);
       if (!success) {
-        alert('Erreur lors de la suppression de l\'enseignant.');
+        alert(t('error_delete_teacher'));
       }
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-black">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Gestion des Enseignants</h1>
-          <p className="text-gray-500 text-sm">Suivez le corps professoral et leurs assignations.</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('manage_teachers')}</h1>
+          <p className="text-gray-500 text-sm">{t('teachers_subtitle')}</p>
         </div>
         <button 
           onClick={openAddModal}
           className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-green-700/20"
         >
           <Plus className="w-5 h-5" />
-          <span>Nouvel Enseignant</span>
+          <span>{t('new_teacher')}</span>
         </button>
       </div>
 
@@ -117,27 +144,38 @@ export function Teachers() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input 
             type="text" 
-            placeholder="Rechercher par nom, spécialité..."
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500/20 outline-none"
+            placeholder={t('search_teachers_placeholder')}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500/20 outline-none text-black"
           />
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-          <select className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none flex-1 md:flex-none">
-            <option>Toutes les spécialités</option>
-            <option>Hafiz & Tajwid</option>
-            <option>Fiqh & Hadith</option>
+          <select 
+            value={specialiteFilter}
+            onChange={(e) => setSpecialiteFilter(e.target.value)}
+            className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none flex-1 md:flex-none text-black font-medium"
+          >
+            <option value="Tous">{t('all_specialties')}</option>
+            {specialties.map(spec => (
+              <option key={spec} value={spec}>{spec}</option>
+            ))}
           </select>
-          <select className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none flex-1 md:flex-none">
-            <option>Statut: Tous</option>
-            <option>Actif</option>
-            <option>Inactif</option>
+          <select 
+            value={statutFilter}
+            onChange={(e) => setStatutFilter(e.target.value)}
+            className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none flex-1 md:flex-none text-black font-medium"
+          >
+            <option value="Tous">{t('status_all')}</option>
+            <option value="Actif">{t('active')}</option>
+            <option value="Inactif">{t('inactive')}</option>
           </select>
         </div>
       </div>
 
       {/* Grid List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {enseignants.map((teacher) => (
+        {filteredTeachers.map((teacher) => (
           <motion.div
             key={teacher.id}
             whileHover={{ y: -4 }}
@@ -178,20 +216,20 @@ export function Teachers() {
 
               <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-50">
                 <div>
-                  <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Assignation</p>
+                  <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">{t('assignment')}</p>
                   <div className="flex items-center gap-2 text-sm text-gray-700 font-semibold">
                     <Users className="w-4 h-4 text-gray-400" />
-                    <span>{teacher.nb_eleves} élèves</span>
+                    <span>{teacher.nb_eleves} {t('students').toLowerCase()}</span>
                   </div>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Salaire</p>
+                  <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">{t('salary')}</p>
                   <div className="flex items-center gap-2 text-sm text-gray-700 font-semibold">
                     <CreditCard className="w-4 h-4 text-gray-400" />
                     <span className={cn(
                       teacher.statut_paiement_mois === 'Payé' ? "text-green-600" : "text-orange-500"
                     )}>
-                      {teacher.statut_paiement_mois}
+                      {teacher.statut_paiement_mois === 'Payé' ? t('paye') : t('en_attente')}
                     </span>
                   </div>
                 </div>
@@ -199,12 +237,17 @@ export function Teachers() {
             </div>
             
             <div className="px-6 py-3 bg-gray-50 flex items-center justify-between group-hover:bg-green-50 transition-colors">
-              <span className="text-xs text-gray-500">Recruté le {new Date(teacher.date_embauche).toLocaleDateString()}</span>
+              <span className="text-xs text-gray-500">{t('hired_on')} {new Date(teacher.date_embauche).toLocaleDateString(language === 'ar' ? 'ar-EG' : language === 'wo' ? 'wo-SN' : 'fr-FR')}</span>
               <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-green-600 transition-transform group-hover:translate-x-1" />
             </div>
           </motion.div>
         ))}
       </div>
+      {filteredTeachers.length === 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-500 shadow-sm w-full col-span-full">
+          {t('no_teachers_found')}
+        </div>
+      )}
 
       {/* Teacher Detail Drawer */}
       <AnimatePresence>
@@ -225,7 +268,7 @@ export function Teachers() {
               className="fixed inset-y-0 right-0 w-full max-w-lg bg-white z-[60] shadow-2xl flex flex-col"
             >
               <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                <h2 className="font-bold text-xl text-gray-800">Détails Enseignant</h2>
+                <h2 className="font-bold text-xl text-gray-800">{t('teacher_details')}</h2>
                 <button onClick={() => setIsDrawerOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                   <X className="w-6 h-6" />
                 </button>
@@ -247,7 +290,7 @@ export function Teachers() {
                         "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
                         selectedTeacher.statut === 'Actif' ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
                       )}>
-                        {selectedTeacher.statut}
+                        {selectedTeacher.statut === 'Actif' ? t('active') : t('inactive')}
                       </span>
                       <span className="text-xs text-gray-400">{selectedTeacher.matricule}</span>
                     </div>
@@ -257,27 +300,27 @@ export function Teachers() {
                 {/* Info Sections */}
                 <div className="grid grid-cols-2 gap-6">
                   <div className="bg-gray-50 p-4 rounded-xl space-y-1">
-                    <p className="text-[10px] uppercase font-bold text-gray-400">Téléphone</p>
+                    <p className="text-[10px] uppercase font-bold text-gray-400">{t('phone')}</p>
                     <p className="text-sm font-semibold text-gray-800">{selectedTeacher.telephone}</p>
                   </div>
                   <div className="bg-gray-50 p-4 rounded-xl space-y-1">
-                    <p className="text-[10px] uppercase font-bold text-gray-400">Adresse</p>
+                    <p className="text-[10px] uppercase font-bold text-gray-400">{t('address')}</p>
                     <p className="text-sm font-semibold text-gray-800">{selectedTeacher.adresse}</p>
                   </div>
                   <div className="bg-gray-50 p-4 rounded-xl space-y-1">
-                    <p className="text-[10px] uppercase font-bold text-gray-400">Salaire mensuel</p>
+                    <p className="text-[10px] uppercase font-bold text-gray-400">{t('monthly_salary')}</p>
                     <p className="text-sm font-semibold text-gray-800">{selectedTeacher.salaire_mensuel.toLocaleString()} CFA</p>
                   </div>
                   <div className="bg-gray-50 p-4 rounded-xl space-y-1">
-                    <p className="text-[10px] uppercase font-bold text-gray-400">Date d'embauche</p>
-                    <p className="text-sm font-semibold text-gray-800">{new Date(selectedTeacher.date_embauche).toLocaleDateString()}</p>
+                    <p className="text-[10px] uppercase font-bold text-gray-400">{t('hire_date')}</p>
+                    <p className="text-sm font-semibold text-gray-800">{new Date(selectedTeacher.date_embauche).toLocaleDateString(language === 'ar' ? 'ar-EG' : language === 'wo' ? 'wo-SN' : 'fr-FR')}</p>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="font-bold text-gray-800 border-b border-gray-100 pb-2">Compétences & Qualifications</h4>
+                  <h4 className="font-bold text-gray-800 border-b border-gray-100 pb-2">{t('skills_qualifications')}</h4>
                   <p className="text-sm text-gray-600 leading-relaxed">
-                    {selectedTeacher.competences || "Aucune qualification supplémentaire renseignée."}
+                    {selectedTeacher.competences || t('no_qualifications')}
                   </p>
                 </div>
 
@@ -285,9 +328,9 @@ export function Teachers() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold text-gray-800">
-                      Élèves assignés ({eleves.filter(student => student.enseignant_id === selectedTeacher.id).length})
+                      {t('assigned_students')} ({eleves.filter(student => student.enseignant_id === selectedTeacher.id).length})
                     </h4>
-                    <button type="button" className="text-xs text-green-600 font-bold hover:underline">Voir la liste complète</button>
+                    <button type="button" className="text-xs text-green-600 font-bold hover:underline">{t('view_full_list')}</button>
                   </div>
                   <div className="space-y-2">
                     {(() => {
@@ -295,7 +338,7 @@ export function Teachers() {
                       if (assignedStudents.length === 0) {
                         return (
                           <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                            <p className="text-sm text-gray-500 font-medium">Aucun élève n'est assigné à cet enseignant.</p>
+                            <p className="text-sm text-gray-500 font-medium">{t('no_assigned_students')}</p>
                           </div>
                         );
                       }
@@ -308,7 +351,7 @@ export function Teachers() {
                           />
                           <div>
                             <p className="text-sm font-bold text-gray-800">{student.prenom} {student.nom}</p>
-                            <p className="text-[10px] text-gray-400">Matricule: {student.matricule}</p>
+                            <p className="text-[10px] text-gray-400">{t('matricule')}: {student.matricule}</p>
                           </div>
                           <ChevronRight className="w-4 h-4 ml-auto text-gray-300" />
                         </div>
@@ -319,9 +362,15 @@ export function Teachers() {
               </div>
 
               <div className="p-6 border-t border-gray-100 bg-gray-50 shrink-0">
-                <button className="w-full bg-white border border-gray-200 text-gray-700 py-3 rounded-xl font-bold text-sm hover:bg-gray-100 transition-colors flex items-center justify-center gap-2">
+                <button 
+                  onClick={(e) => {
+                    setIsDrawerOpen(false);
+                    openEditModal(e, selectedTeacher);
+                  }}
+                  className="w-full bg-white border border-gray-200 text-gray-700 py-3 rounded-xl font-bold text-sm hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+                >
                   <Edit2 className="w-4 h-4" />
-                  Modifier le profil
+                  {t('edit_profile')}
                 </button>
               </div>
             </motion.div>
@@ -348,7 +397,7 @@ export function Teachers() {
             >
                <div className="p-6 border-b border-gray-100 flex items-center justify-between shrink-0">
                 <h2 className="text-xl font-bold text-gray-800">
-                  {modalMode === 'add' ? 'Ajouter un Enseignant' : 'Modifier Enseignant'}
+                  {modalMode === 'add' ? t('add_teacher') : t('edit_teacher')}
                 </h2>
                 <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                   <X className="w-6 h-6" />
@@ -358,36 +407,36 @@ export function Teachers() {
               <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 <div className="flex-1 overflow-y-auto p-8 text-black grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Nom</label>
-                    <input name="nom" required type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.nom} />
+                    <label className="text-xs font-bold text-gray-400 uppercase">{t('nom')}</label>
+                    <input name="nom" required type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black" defaultValue={selectedTeacher?.nom} />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Prénom</label>
-                    <input name="prenom" required type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.prenom} />
+                    <label className="text-xs font-bold text-gray-400 uppercase">{t('prenom')}</label>
+                    <input name="prenom" required type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black" defaultValue={selectedTeacher?.prenom} />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Téléphone</label>
-                    <input name="telephone" required type="tel" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.telephone} />
+                    <label className="text-xs font-bold text-gray-400 uppercase">{t('phone')}</label>
+                    <input name="telephone" required type="tel" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black" defaultValue={selectedTeacher?.telephone} />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Spécialité</label>
-                    <input name="specialite" required type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.specialite} />
+                    <label className="text-xs font-bold text-gray-400 uppercase">{t('specialite')}</label>
+                    <input name="specialite" required type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black" defaultValue={selectedTeacher?.specialite} />
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Adresse</label>
-                    <input name="adresse" type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.adresse} />
+                    <label className="text-xs font-bold text-gray-400 uppercase">{t('address')}</label>
+                    <input name="adresse" type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black" defaultValue={selectedTeacher?.adresse} />
                   </div>
                    <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Salaire Mensuel (CFA)</label>
-                    <input name="salaire_mensuel" required type="number" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher?.salaire_mensuel} />
+                    <label className="text-xs font-bold text-gray-400 uppercase">{t('monthly_salary')} (CFA)</label>
+                    <input name="salaire_mensuel" required type="number" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black" defaultValue={selectedTeacher?.salaire_mensuel} />
                   </div>
                    <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Date d'embauche</label>
-                    <input name="date_embauche" required type="date" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedTeacher ? new Date(selectedTeacher.date_embauche).toISOString().substring(0, 10) : ''} />
+                    <label className="text-xs font-bold text-gray-400 uppercase">{t('hire_date')}</label>
+                    <input name="date_embauche" required type="date" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black" defaultValue={selectedTeacher ? new Date(selectedTeacher.date_embauche).toISOString().substring(0, 10) : ''} />
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Compétences & Qualifications</label>
-                    <textarea name="competences" rows={3} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 resize-none" defaultValue={selectedTeacher?.competences} />
+                    <label className="text-xs font-bold text-gray-400 uppercase">{t('skills_qualifications')}</label>
+                    <textarea name="competences" rows={3} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 resize-none text-black" defaultValue={selectedTeacher?.competences} />
                   </div>
                 </div>
 
@@ -397,10 +446,10 @@ export function Teachers() {
                     onClick={() => setIsModalOpen(false)}
                     className="px-6 py-2 rounded-xl text-sm font-medium text-gray-600 hover:bg-white transition-colors"
                   >
-                    Annuler
+                    {t('cancel')}
                   </button>
                   <button type="submit" className="bg-green-700 text-white px-8 py-2 rounded-xl text-sm font-medium hover:bg-green-800 transition-all shadow-lg shadow-green-700/20">
-                    {modalMode === 'add' ? 'Créer le profil' : 'Mettre à jour'}
+                    {modalMode === 'add' ? t('create_profile') : t('update')}
                   </button>
                 </div>
               </form>

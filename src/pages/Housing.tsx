@@ -36,7 +36,7 @@ interface Dortoir {
 }
 
 export function Housing() {
-  const { eleves, updateEleve } = useApp();
+  const { eleves, updateEleve, searchQuery, setSearchQuery, t } = useApp();
   const [dortoirs, setDortoirs] = React.useState<Dortoir[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedDortoir, setSelectedDortoir] = React.useState<number | null>(null);
@@ -44,7 +44,7 @@ export function Housing() {
   // Modal State
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
   const [assignTarget, setAssignTarget] = React.useState<{ dortoirId: number; litNumero: number } | null>(null);
-  const [searchQuery, setSearchQuery] = React.useState('');
+  const [studentSearchQuery, setStudentSearchQuery] = React.useState('');
   const [assigning, setAssigning] = React.useState(false);
 
   // Dortoir CRUD States
@@ -78,7 +78,7 @@ export function Housing() {
     const capacite_lits = Number(formData.get('capacite_lits'));
 
     if (!nom || !capacite_lits) {
-      setDortoirFormError("Tous les champs sont obligatoires.");
+      setDortoirFormError(t('all_fields_required'));
       setSubmittingDortoir(false);
       return;
     }
@@ -103,7 +103,7 @@ export function Housing() {
       }
 
       if (!res.ok) {
-        throw new Error(data.error || "Une erreur est survenue.");
+        throw new Error(data.error || t('error_occurred'));
       }
 
       await fetchDortoirs();
@@ -113,14 +113,14 @@ export function Housing() {
         setSelectedDortoir(data.id);
       }
     } catch (err: any) {
-      setDortoirFormError(err.message || "Impossible d'enregistrer le dortoir.");
+      setDortoirFormError(err.message || t('unable_save_dormitory'));
     } finally {
       setSubmittingDortoir(false);
     }
   };
 
   const handleDeleteDortoir = async (dortoir: Dortoir) => {
-    if (window.confirm(`Voulez-vous vraiment supprimer le dortoir "${dortoir.nom}" ?`)) {
+    if (window.confirm(t('confirm_delete_dormitory').replace('{name}', dortoir.nom))) {
       try {
         const res = await fetch(`/api/dortoirs/${dortoir.id}`, {
           method: 'DELETE'
@@ -136,7 +136,7 @@ export function Housing() {
         }
 
         if (!res.ok) {
-          throw new Error(data.error || "Une erreur est survenue.");
+          throw new Error(data.error || t('error_occurred'));
         }
         
         await fetchDortoirs();
@@ -144,7 +144,7 @@ export function Housing() {
           setSelectedDortoir(dortoirs.find(d => d.id !== dortoir.id)?.id || null);
         }
       } catch (err: any) {
-        alert(err.message || "Impossible de supprimer le dortoir.");
+        alert(err.message || t('unable_delete_dormitory'));
       }
     }
   };
@@ -189,8 +189,8 @@ export function Housing() {
   );
 
   const filteredStudents = unassignedStudents.filter((e) =>
-    `${e.prenom} ${e.nom}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    e.matricule.toLowerCase().includes(searchQuery.toLowerCase())
+    `${e.prenom} ${e.nom}`.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+    e.matricule.toLowerCase().includes(studentSearchQuery.toLowerCase())
   );
 
   // Assigner un élève à un lit
@@ -206,7 +206,7 @@ export function Housing() {
       await updateEleve(updated);
       setIsAssignModalOpen(false);
       setAssignTarget(null);
-      setSearchQuery('');
+      setStudentSearchQuery('');
       await fetchDortoirs();
     } catch (e) {
       console.error('Erreur assignation:', e);
@@ -220,7 +220,7 @@ export function Housing() {
     const student = eleves.find(e => e.id === studentId);
     if (!student) return;
     
-    if (window.confirm(`Voulez-vous libérer le lit de ${student.prenom} ${student.nom} ?`)) {
+    if (window.confirm(t('confirm_release_bed').replace('{name}', `${student.prenom} ${student.nom}`))) {
       try {
         const updated = {
           ...student,
@@ -243,13 +243,25 @@ export function Housing() {
 
   const currentDortoir = dortoirs.find(d => d.id === selectedDortoir);
 
+  // Filter dortoirs by global searchQuery
+  const filteredDortoirs = dortoirs.filter(d => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    if (d.nom.toLowerCase().includes(q)) return true;
+    return d.occupants.some(o => 
+      o.nom.toLowerCase().includes(q) || 
+      o.prenom.toLowerCase().includes(q) || 
+      o.matricule.toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div className="space-y-8 font-sans">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Hébergement & Dortoirs</h1>
-          <p className="text-slate-500 text-sm">Visualisez la grille des lits, gérez les chambres et attribuez des logements aux élèves internes.</p>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{t('housing_dormitories')}</h1>
+          <p className="text-slate-500 text-sm">{t('housing_subtitle')}</p>
         </div>
       </div>
 
@@ -263,7 +275,7 @@ export function Housing() {
             <Bed className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Lits</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">{t('housing_total_beds')}</span>
             <span className="text-2xl font-black text-slate-800 block mt-0.5">{totalBeds}</span>
           </div>
         </motion.div>
@@ -276,7 +288,7 @@ export function Housing() {
             <Users className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Occupés</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">{t('housing_occupied')}</span>
             <span className="text-2xl font-black text-slate-800 block mt-0.5">{occupiedBeds}</span>
           </div>
         </motion.div>
@@ -289,7 +301,7 @@ export function Housing() {
             <Sparkles className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Lits Libres</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">{t('housing_free_beds')}</span>
             <span className="text-2xl font-black text-slate-800 block mt-0.5">{freeBeds}</span>
           </div>
         </motion.div>
@@ -302,7 +314,7 @@ export function Housing() {
             <Activity className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Taux d'occupation</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">{t('housing_occupancy_rate')}</span>
             <span className="text-2xl font-black text-slate-800 block mt-0.5">{occupancyRate}%</span>
           </div>
         </motion.div>
@@ -314,11 +326,11 @@ export function Housing() {
         {/* Dormitory List Sidebar */}
         <div className="lg:col-span-1 space-y-4">
           <div className="flex items-center justify-between pl-2 pr-1">
-            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Dortoirs</h2>
+            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">{t('dormitories')}</h2>
             <button 
               onClick={openAddDortoirModal}
               className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-indigo-600 transition-colors"
-              title="Ajouter un dortoir"
+              title={t('add_dormitory')}
             >
               <Plus className="w-4.5 h-4.5" />
             </button>
@@ -329,7 +341,7 @@ export function Housing() {
                 <div className="w-6 h-6 border-2 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
               </div>
             )}
-            {!loading && dortoirs.map((d) => {
+            {!loading && filteredDortoirs.map((d) => {
               const occRate = Math.round((d.occupants.length / d.capacite_lits) * 100);
               const isActive = selectedDortoir === d.id;
 
@@ -363,7 +375,7 @@ export function Housing() {
                     />
                   </div>
                   <div className="flex justify-between items-center mt-2">
-                    <span className="text-[10px] opacity-60">Occupation</span>
+                    <span className="text-[10px] opacity-60">{t('housing_occupation')}</span>
                     <span className="text-[10px] font-bold">{occRate}%</span>
                   </div>
                 </button>
@@ -384,25 +396,25 @@ export function Housing() {
                       <button 
                         onClick={() => openEditDortoirModal(currentDortoir)}
                         className="p-1 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-indigo-600 transition-colors"
-                        title="Modifier ce dortoir"
+                        title={t('edit_dormitory_title')}
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button 
                         onClick={() => handleDeleteDortoir(currentDortoir)}
                         className="p-1 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-600 transition-colors"
-                        title="Supprimer ce dortoir"
+                        title={t('delete_dormitory_title')}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">Cliquez sur un lit libre pour y affecter un élève interne.</p>
+                  <p className="text-xs text-slate-400 mt-1">{t('click_bed_to_assign')}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Layers className="w-4 h-4 text-slate-400" />
                   <span className="text-xs text-slate-500 font-bold bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl">
-                    Capacité totale : {currentDortoir.capacite_lits} lits
+                    {t('housing_total_capacity').replace('{capacity}', String(currentDortoir.capacite_lits))}
                   </span>
                 </div>
               </div>
@@ -424,12 +436,12 @@ export function Housing() {
                       >
                         <div className="flex justify-between items-start">
                           <div className="bg-indigo-600 text-white rounded-xl px-2 py-1 text-[10px] font-bold shadow-lg shadow-indigo-600/10">
-                            Lit #{litNum}
+                            {t('lit_num')}{litNum}
                           </div>
                           <button
                             onClick={() => handleFreeBed(occupant.id)}
                             className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100"
-                            title="Libérer ce lit"
+                            title={t('release_bed')}
                           >
                             <UserMinus className="w-3.5 h-3.5" />
                           </button>
@@ -463,10 +475,10 @@ export function Housing() {
                         className="border-2 border-dashed border-slate-200 rounded-3xl p-5 flex flex-col items-center justify-center text-slate-400 hover:border-indigo-500 hover:text-indigo-600 hover:bg-indigo-50/10 transition-all aspect-square cursor-pointer"
                       >
                         <div className="border border-slate-200 rounded-xl px-2 py-1 text-[10px] font-bold mb-3">
-                          Lit #{litNum}
+                          {t('lit_num')}{litNum}
                         </div>
                         <Plus className="w-5 h-5 mb-1.5" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">Attribuer</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider">{t('assign_bed')}</span>
                       </motion.button>
                     );
                   }
@@ -476,8 +488,8 @@ export function Housing() {
           ) : (
             <div className="bg-slate-50 border border-slate-100 rounded-[40px] p-12 text-center text-slate-400 flex flex-col items-center justify-center min-h-[400px]">
               <Bed className="w-12 h-12 text-slate-300 mb-4" />
-              <p className="font-bold">Aucun dortoir configuré.</p>
-              <p className="text-xs text-slate-400 mt-1">Créez des dortoirs dans les paramètres de la base de données.</p>
+              <p className="font-bold">{t('no_dormitory_configured')}</p>
+              <p className="text-xs text-slate-400 mt-1">{t('create_dormitory_sub')}</p>
             </div>
           )}
         </div>
@@ -505,8 +517,8 @@ export function Housing() {
             >
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-black text-slate-800">Attribuer le Lit #{assignTarget.litNumero}</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Dortoir : {currentDortoir?.nom}</p>
+                  <h3 className="text-lg font-black text-slate-800">{t('assign_bed_num').replace('{litNumero}', String(assignTarget.litNumero))}</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">{t('dormitory_label').replace('{dortoirName}', currentDortoir?.nom || '')}</p>
                 </div>
                 <button
                   onClick={() => {
@@ -524,9 +536,9 @@ export function Housing() {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Rechercher par nom ou matricule..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t('search_by_name_matricule')}
+                  value={studentSearchQuery}
+                  onChange={(e) => setStudentSearchQuery(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-11 pr-4 py-3 text-sm focus:border-indigo-500 outline-none transition-all text-slate-700 font-medium"
                 />
               </div>
@@ -564,9 +576,9 @@ export function Housing() {
                 ) : (
                   <div className="text-center p-8 text-slate-400 flex flex-col items-center justify-center border border-dashed border-slate-100 rounded-3xl">
                     <Info className="w-8 h-8 text-slate-300 mb-2" />
-                    <p className="text-xs font-bold">Aucun élève interne libre</p>
+                    <p className="text-xs font-bold">{t('no_free_internal_student')}</p>
                     <p className="text-[10px] text-slate-400 mt-1 max-w-[200px] leading-relaxed">
-                      Tous les élèves internes actifs ont déjà un lit assigné, ou aucun élève ne correspond à votre recherche.
+                      {t('all_internal_students_assigned')}
                     </p>
                   </div>
                 )}
@@ -593,12 +605,12 @@ export function Housing() {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className="text-lg font-black text-slate-800">
-                    {dortoirModalMode === 'add' ? 'Créer un Dortoir' : 'Modifier le Dortoir'}
+                    {dortoirModalMode === 'add' ? t('create_dormitory') : t('edit_dormitory')}
                   </h3>
                   <p className="text-xs text-slate-400 mt-0.5">
                     {dortoirModalMode === 'add' 
-                      ? 'Configurez un nouvel espace de dortoir pour les talibés.' 
-                      : 'Mettez à jour le nom ou la capacité du dortoir.'}
+                      ? t('create_dormitory_desc') 
+                      : t('edit_dormitory_desc')}
                   </p>
                 </div>
                 <button
@@ -618,7 +630,7 @@ export function Housing() {
 
               <form onSubmit={handleDortoirSubmit} className="space-y-4 text-black">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Nom du dortoir</label>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">{t('dormitory_name')}</label>
                   <input
                     name="nom"
                     required
@@ -630,7 +642,7 @@ export function Housing() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Nombre de lits (Capacité)</label>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">{t('bed_count_capacity')}</label>
                   <input
                     name="capacite_lits"
                     required
@@ -648,7 +660,7 @@ export function Housing() {
                     onClick={() => setIsDortoirModalOpen(false)}
                     className="px-6 py-2.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-slate-50 transition-colors"
                   >
-                    Annuler
+                    {t('cancel')}
                   </button>
                   <button
                     type="submit"
@@ -658,7 +670,7 @@ export function Housing() {
                     {submittingDortoir && (
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     )}
-                    <span>{dortoirModalMode === 'add' ? 'Créer' : 'Enregistrer'}</span>
+                    <span>{dortoirModalMode === 'add' ? t('create_btn') : t('save')}</span>
                   </button>
                 </div>
               </form>

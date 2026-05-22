@@ -27,12 +27,11 @@ import { MessageTemplate, CommunicationLog } from '@/src/types';
 import { useApp } from '../context/AppContext';
 
 export function Communications() {
-  const { templates, logs, eleves, refreshData } = useApp();
+  const { templates, logs, eleves, refreshData, searchQuery, setSearchQuery, t } = useApp();
   const [activeTab, setActiveTab] = React.useState<'send' | 'history'>('send');
   const [isCampaignModalOpen, setIsCampaignModalOpen] = React.useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = React.useState(false);
   const [selectedTemplate, setSelectedTemplate] = React.useState<MessageTemplate | null>(null);
-  const [searchQuery, setSearchQuery] = React.useState('');
   const [targetFilter, setTargetFilter] = React.useState<'all' | 'sponsors' | 'internal' | 'custom' | 'manual' | 'csv'>('all');
 
   const [messageText, setMessageText] = React.useState('');
@@ -133,7 +132,7 @@ export function Communications() {
     
     const targets = getTargets();
     if (targets.length === 0) {
-      alert('Aucun destinataire valide à cibler.');
+      alert(t('no_valid_recipient'));
       setIsSending(false);
       return;
     }
@@ -155,13 +154,13 @@ export function Communications() {
         setCsvRecipients([]);
         setCsvSuccess('');
         setCsvError('');
-        alert(`Campagne envoyée avec succès à ${targets.length} destinataires !`);
+        alert(t('campaign_sent_success').replace('{count}', String(targets.length)));
       } else {
-        alert('Erreur lors de l\'envoi de la campagne.');
+        alert(t('campaign_send_error'));
       }
     } catch (e) {
       console.error(e);
-      alert('Erreur réseau lors de l\'envoi de la campagne.');
+      alert(t('campaign_send_network_error'));
     } finally {
       setIsSending(false);
     }
@@ -204,13 +203,13 @@ export function Communications() {
       try {
         const text = event.target?.result as string;
         if (!text) {
-          setCsvError('Le fichier est vide.');
+          setCsvError(t('file_is_empty'));
           return;
         }
 
         const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
         if (lines.length === 0) {
-          setCsvError('Aucune ligne trouvée dans le fichier.');
+          setCsvError(t('no_line_found_in_file'));
           return;
         }
 
@@ -257,18 +256,18 @@ export function Communications() {
         }
 
         if (parsed.length === 0) {
-          setCsvError('Aucun contact avec un numéro de téléphone valide n\'a été détecté.');
+          setCsvError(t('no_valid_contact_phone_detected'));
         } else {
           setCsvRecipients(parsed);
-          setCsvSuccess(`${parsed.length} contacts chargés avec succès.`);
+          setCsvSuccess(t('contacts_loaded_success').replace('{count}', String(parsed.length)));
         }
       } catch (err: any) {
-        setCsvError(`Erreur lors de la lecture du fichier : ${err.message}`);
+        setCsvError(t('error_reading_file').replace('{error}', err.message));
       }
     };
 
     reader.onerror = () => {
-      setCsvError('Erreur de lecture du fichier.');
+      setCsvError(t('file_read_error'));
     };
 
     reader.readAsText(file);
@@ -293,11 +292,11 @@ export function Communications() {
         setNewTemplateContenu('');
         setNewTemplateCanal('SMS');
       } else {
-        alert('Erreur lors de la création du modèle.');
+        alert(t('template_create_error'));
       }
     } catch (e) {
       console.error(e);
-      alert('Erreur réseau lors de la création du modèle.');
+      alert(t('template_create_network_error'));
     }
   };
 
@@ -326,8 +325,8 @@ export function Communications() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Communications</h1>
-          <p className="text-gray-500 text-sm">Gérez les échanges avec les parents et les campagnes de messages.</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('communications')}</h1>
+          <p className="text-gray-500 text-sm">{t('communications_subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <button 
@@ -335,7 +334,7 @@ export function Communications() {
             className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-50 transition-colors flex items-center gap-2"
           >
             <Layout className="w-4 h-4" />
-            <span>Nouveau Modèle</span>
+            <span>{t('create_new_template')}</span>
           </button>
           <button 
             onClick={() => {
@@ -347,7 +346,7 @@ export function Communications() {
             className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2"
           >
             <Send className="w-4 h-4" />
-            <span>Envoi en Masse</span>
+            <span>{t('bulk_send')}</span>
           </button>
         </div>
       </div>
@@ -361,7 +360,7 @@ export function Communications() {
             activeTab === 'send' ? "text-blue-600" : "text-gray-400 hover:text-gray-600"
           )}
         >
-          Campagnes & Envois
+          {t('campaigns_sends')}
           {activeTab === 'send' && <motion.div layoutId="comm-tab" className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t-full" />}
         </button>
         <button 
@@ -371,7 +370,7 @@ export function Communications() {
             activeTab === 'history' ? "text-blue-600" : "text-gray-400 hover:text-gray-600"
           )}
         >
-          Historique & Modèles
+          {t('history_templates')}
           {activeTab === 'history' && <motion.div layoutId="comm-tab" className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t-full" />}
         </button>
       </div>
@@ -387,7 +386,7 @@ export function Communications() {
           >
             {/* Quick Templates Grid */}
             <div className="lg:col-span-2 space-y-4 text-black">
-              <h2 className="text-lg font-bold text-gray-800">Modèles Rapides</h2>
+              <h2 className="text-lg font-bold text-gray-800">{t('quick_templates')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {templates.map((template) => (
                   <motion.div
@@ -420,7 +419,7 @@ export function Communications() {
                       )}
                     </p>
                     <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-[10px] text-blue-600 font-bold uppercase">Utiliser ce modèle</span>
+                      <span className="text-[10px] text-blue-600 font-bold uppercase">{t('use_this_template')}</span>
                       <ChevronRight className="w-4 h-4 text-blue-600" />
                     </div>
                   </motion.div>
@@ -435,15 +434,15 @@ export function Communications() {
                   <div className="p-2 bg-white/20 rounded-xl">
                     <Users className="w-5 h-5" />
                   </div>
-                  <h3 className="font-bold">Ciblage Automatique</h3>
+                  <h3 className="font-bold">{t('auto_targeting')}</h3>
                 </div>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-3 bg-white/10 rounded-2xl">
-                    <span className="text-sm">Élèves payants</span>
+                    <span className="text-sm">{t('paying_students')}</span>
                     <span className="font-bold bg-white text-blue-600 px-2 py-0.5 rounded-lg text-xs">{sponsorsCount}</span>
                   </div>
                    <div className="flex items-center justify-between p-3 bg-white/10 rounded-2xl">
-                    <span className="text-sm">Élèves non payants</span>
+                    <span className="text-sm">{t('free_students')}</span>
                     <span className="font-bold bg-white text-blue-600 px-2 py-0.5 rounded-lg text-xs">{eleves.length - sponsorsCount}</span>
                   </div>
                 </div>
@@ -464,18 +463,18 @@ export function Communications() {
                   }}
                   className="w-full mt-6 bg-white text-blue-600 py-3 rounded-xl font-extrabold text-sm hover:bg-blue-50 transition-colors shadow-lg"
                 >
-                  Contacter les élèves payants
+                  {t('contact_paying_students')}
                 </button>
               </div>
 
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm text-black">
-                 <h3 className="font-bold text-gray-800 mb-4">Raccourcis Variables</h3>
+                 <h3 className="font-bold text-gray-800 mb-4">{t('variable_shortcuts')}</h3>
                  <div className="space-y-2">
                     {[
-                      { key: '[Nom_Parent]', desc: 'Nom complet du tuteur' },
-                      { key: '[Nom_Eleve]', desc: 'Prénom et Nom de l\'élève' },
-                      { key: '[Mois]', desc: 'Mois de facturation' },
-                      { key: '[Montant]', desc: 'Solde restant dû' }
+                      { key: '[Nom_Parent]', desc: t('tutor_fullname_desc') },
+                      { key: '[Nom_Eleve]', desc: t('student_fullname_desc') },
+                      { key: '[Mois]', desc: t('billing_month_desc') },
+                      { key: '[Montant]', desc: t('remaining_balance_desc') }
                     ].map(v => (
                       <div key={v.key} className="flex items-center gap-3 p-2 bg-gray-50 rounded-xl border border-gray-100">
                         <Variable className="w-4 h-4 text-blue-500" />
@@ -498,18 +497,19 @@ export function Communications() {
             className="space-y-8"
           >
             {/* Templates Management */}
+            {/* Templates Management */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden text-black">
               <div className="p-6 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                   <Layout className="w-5 h-5 text-blue-600" />
-                  Gestionnaire de Modèles
+                  {t('template_manager')}
                 </h2>
                 <button 
                   onClick={() => setIsTemplateModalOpen(true)}
                   className="px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-100 transition-colors flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" />
-                  Nouveau Modèle
+                  {t('create_new_template')}
                 </button>
               </div>
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -534,14 +534,16 @@ export function Communications() {
               <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
                  <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                   <History className="w-5 h-5 text-blue-600" />
-                  Journal des Envois
+                  {t('send_logs')}
                 </h2>
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input 
                       type="text" 
-                      placeholder="Nom parent ou numéro..."
+                      placeholder={t('parent_name_or_number')}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 outline-none w-64 text-black"
                     />
                   </div>
@@ -554,46 +556,52 @@ export function Communications() {
                 <table className="w-full text-left italic">
                   <thead className="bg-gray-50 text-gray-400 text-[10px] uppercase font-bold tracking-widest italic">
                     <tr>
-                      <th className="px-6 py-4">Destinataire</th>
-                      <th className="px-6 py-4">Date & Heure</th>
-                      <th className="px-6 py-4">Message</th>
-                      <th className="px-6 py-4">Statut</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
+                      <th className="px-6 py-4">{t('recipient')}</th>
+                      <th className="px-6 py-4">{t('date_time')}</th>
+                      <th className="px-6 py-4">{t('message')}</th>
+                      <th className="px-6 py-4">{t('status')}</th>
+                      <th className="px-6 py-4 text-right">{t('actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {filteredLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-gray-50 transition-colors group italic">
-                        <td className="px-6 py-4">
-                          <p className="font-bold text-gray-900 italic">{log.parent_nom}</p>
-                          <p className="text-[10px] text-gray-400 italic">{log.telephone}</p>
-                        </td>
-                        <td className="px-6 py-4 italic">
-                          <p className="text-xs text-gray-600 font-medium italic">{new Date(log.date_envoi).toLocaleDateString()}</p>
-                          <p className="text-[10px] text-gray-400 italic">{new Date(log.date_envoi).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                        </td>
-                        <td className="px-6 py-4 max-w-xs italic">
-                          <p className="text-xs text-gray-500 truncate italic">{log.message}</p>
-                        </td>
-                        <td className="px-6 py-4 italic">
-                          <div className="flex items-center gap-2 italic">
-                            <StatusIcon status={log.statut} />
-                            <span className={cn(
-                              "text-[10px] font-bold uppercase",
-                              log.statut === 'Distribué' ? "text-green-600" : 
-                              log.statut === 'Envoyé' ? "text-blue-600" : "text-red-600"
-                            )}>
-                              {log.statut}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right italic">
-                          <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-blue-600 transition-colors">
-                            <ExternalLink className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredLogs.map((log) => {
+                      const translatedStatus = 
+                        log.statut === 'Distribué' ? t('status_delivered') :
+                        log.statut === 'Envoyé' ? t('status_sent') :
+                        log.statut === 'Échoué' ? t('status_failed') : log.statut;
+                      return (
+                        <tr key={log.id} className="hover:bg-gray-50 transition-colors group italic">
+                          <td className="px-6 py-4">
+                            <p className="font-bold text-gray-900 italic">{log.parent_nom}</p>
+                            <p className="text-[10px] text-gray-400 italic">{log.telephone}</p>
+                          </td>
+                          <td className="px-6 py-4 italic">
+                            <p className="text-xs text-gray-600 font-medium italic">{new Date(log.date_envoi).toLocaleDateString()}</p>
+                            <p className="text-[10px] text-gray-400 italic">{new Date(log.date_envoi).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                          </td>
+                          <td className="px-6 py-4 max-w-xs italic">
+                            <p className="text-xs text-gray-500 truncate italic">{log.message}</p>
+                          </td>
+                          <td className="px-6 py-4 italic">
+                            <div className="flex items-center gap-2 italic">
+                              <StatusIcon status={log.statut} />
+                              <span className={cn(
+                                "text-[10px] font-bold uppercase",
+                                log.statut === 'Distribué' ? "text-green-600" : 
+                                log.statut === 'Envoyé' ? "text-blue-600" : "text-red-600"
+                              )}>
+                                {translatedStatus}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right italic">
+                            <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-blue-600 transition-colors">
+                              <ExternalLink className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -624,7 +632,7 @@ export function Communications() {
                   <div className="p-2 bg-white/20 rounded-xl">
                     <Send className="w-6 h-6" />
                   </div>
-                  <h2 className="text-xl font-bold">Nouvelle Campagne Massif</h2>
+                  <h2 className="text-xl font-bold">{t('new_bulk_campaign')}</h2>
                 </div>
                 <button onClick={() => setIsCampaignModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                   <X className="w-6 h-6" />
@@ -634,7 +642,7 @@ export function Communications() {
               <div className="flex-1 overflow-y-auto p-8 space-y-6 text-black italic">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 italic">
                   <div className="space-y-2 italic">
-                    <label className="text-xs font-bold text-gray-400 uppercase italic">Canal de communication</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase italic">{t('communication_channel')}</label>
                     <div className="grid grid-cols-3 gap-2 italic">
                        {['SMS', 'WhatsApp', 'Email'].map(c => (
                          <button 
@@ -652,18 +660,18 @@ export function Communications() {
                     </div>
                   </div>
                   <div className="space-y-2 italic">
-                    <label className="text-xs font-bold text-gray-400 uppercase italic">Cible des destinataires</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase italic">{t('recipient_target')}</label>
                     <select 
                       value={targetFilter} 
                       onChange={(e) => setTargetFilter(e.target.value as any)}
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 italic text-black font-medium"
                     >
-                      <option value="all">Tous les parents ({eleves.length})</option>
-                      <option value="sponsors">Élèves payants uniquement ({sponsorsCount})</option>
-                      <option value="internal">Internat uniquement ({eleves.filter(e => e.statut_pension === 'Interne').length})</option>
-                      <option value="custom">Sélection personnalisée (liste)</option>
-                      <option value="manual">Saisie manuelle de numéros</option>
-                      <option value="csv">Importer un fichier CSV</option>
+                      <option value="all">{t('all_parents_count').replace('{count}', String(eleves.length))}</option>
+                      <option value="sponsors">{t('paying_students_only_count').replace('{count}', String(sponsorsCount))}</option>
+                      <option value="internal">{t('boarding_only_count').replace('{count}', String(eleves.filter(e => e.statut_pension === 'Interne').length))}</option>
+                      <option value="custom">{t('custom_selection_list')}</option>
+                      <option value="manual">{t('manual_number_entry')}</option>
+                      <option value="csv">{t('import_csv_file')}</option>
                     </select>
                   </div>
                 </div>
@@ -672,21 +680,21 @@ export function Communications() {
                 {targetFilter === 'custom' && (
                   <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200/60 space-y-4 text-black">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-gray-500 uppercase">Sélectionnez les élèves ({customSelectedIds.size} sélectionné(s))</span>
+                      <span className="text-xs font-bold text-gray-500 uppercase">{t('select_students_count').replace('{count}', String(customSelectedIds.size))}</span>
                       <div className="flex items-center gap-2">
                         <button 
                           type="button" 
                           onClick={selectAllStudents}
                           className="text-[10px] bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg font-bold hover:bg-blue-100 transition-colors"
                         >
-                          Tout cocher
+                          {t('select_all')}
                         </button>
                         <button 
                           type="button" 
                           onClick={deselectAllStudents}
                           className="text-[10px] bg-gray-200 text-gray-600 px-2.5 py-1 rounded-lg font-bold hover:bg-gray-300 transition-colors"
                         >
-                          Tout décocher
+                          {t('deselect_all')}
                         </button>
                       </div>
                     </div>
@@ -695,7 +703,7 @@ export function Communications() {
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input 
                         type="text" 
-                        placeholder="Rechercher un élève ou tuteur..." 
+                        placeholder={t('search_student_tutor')}
                         value={studentSearchQuery}
                         onChange={(e) => setStudentSearchQuery(e.target.value)}
                         className="pl-10 pr-4 py-2 w-full bg-white border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 outline-none text-black"
@@ -723,13 +731,13 @@ export function Communications() {
                             />
                             <div className="text-left">
                               <p className="text-xs font-bold text-gray-800">{eleve.prenom} {eleve.nom}</p>
-                              <p className="text-[10px] text-gray-400">Parent: {eleve.tuteur_nom || 'N/A'} ({eleve.contact_parent})</p>
+                              <p className="text-[10px] text-gray-400">{t('parent_label').replace('{name}', eleve.tuteur_nom || 'N/A').replace('{phone}', eleve.contact_parent)}</p>
                             </div>
                           </label>
                         );
                       })}
                       {filteredStudents.length === 0 && (
-                        <p className="text-xs text-gray-400 py-4 text-center">Aucun élève trouvé.</p>
+                        <p className="text-xs text-gray-400 py-4 text-center">{t('no_student_found')}</p>
                       )}
                     </div>
                   </div>
@@ -737,23 +745,23 @@ export function Communications() {
 
                 {targetFilter === 'manual' && (
                   <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200/60 space-y-3 text-black">
-                    <span className="text-xs font-bold text-gray-500 uppercase block">Saisie Manuelle</span>
+                    <span className="text-xs font-bold text-gray-500 uppercase block">{t('manual_entry')}</span>
                     <div className="space-y-3">
                       <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Nom du contact (optionnel)</label>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">{t('contact_name_optional')}</label>
                         <input 
                           type="text" 
-                          placeholder="Ex: Tuteur externe"
+                          placeholder={t('example_external_tutor')}
                           value={manualRecipientName}
                           onChange={(e) => setManualRecipientName(e.target.value)}
                           className="w-full bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500/20 text-black font-medium"
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Numéro(s) de téléphone (séparés par une virgule ou saut de ligne)</label>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">{t('phone_numbers_separator_desc')}</label>
                         <textarea 
                           rows={3}
-                          placeholder="Ex: +221771234567, +221789876543"
+                          placeholder={t('example_phone_numbers')}
                           value={manualRecipientPhone}
                           onChange={(e) => setManualRecipientPhone(e.target.value)}
                           className="w-full bg-white border border-gray-200 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-blue-500/20 text-black font-mono"
@@ -765,16 +773,16 @@ export function Communications() {
 
                 {targetFilter === 'csv' && (
                   <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200/60 space-y-3 text-black">
-                    <span className="text-xs font-bold text-gray-500 uppercase block">Importer un fichier CSV</span>
+                    <span className="text-xs font-bold text-gray-500 uppercase block">{t('import_csv_file')}</span>
                     <p className="text-[11px] text-gray-400 leading-normal">
-                      Le fichier CSV doit contenir des colonnes avec les entêtes <strong>Nom</strong> et <strong>Telephone</strong> (ou simplement deux colonnes: Nom en premier, Téléphone en second).
+                      {t('csv_instructions')}
                     </p>
                     <div className="space-y-3">
                       <div className="flex items-center justify-center w-full">
                         <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-white hover:bg-gray-50 transition-colors">
                           <div className="flex flex-col items-center justify-center pt-5 pb-6">
                             <Plus className="w-6 h-6 text-gray-400 mb-1" />
-                            <p className="text-xs text-gray-500 font-bold">Cliquez pour charger le fichier .csv</p>
+                            <p className="text-xs text-gray-500 font-bold">{t('click_to_load_csv')}</p>
                           </div>
                           <input 
                             type="file" 
@@ -801,7 +809,7 @@ export function Communications() {
 
                       {csvRecipients.length > 0 && (
                         <div className="border border-gray-200/50 rounded-xl overflow-hidden bg-white">
-                          <p className="bg-gray-100 px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase">Aperçu des contacts</p>
+                          <p className="bg-gray-100 px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase">{t('contacts_preview')}</p>
                           <div className="divide-y divide-gray-100 p-2 space-y-1 max-h-32 overflow-y-auto">
                             {csvRecipients.map((r, idx) => (
                               <div key={idx} className="flex justify-between text-left text-xs p-1.5">
@@ -817,24 +825,24 @@ export function Communications() {
                 )}
 
                 <div className="space-y-2 italic">
-                  <label className="text-xs font-bold text-gray-400 uppercase italic">Modèle de message</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase italic">{t('message_template')}</label>
                   <select 
                     value={selectedTemplate?.id || ''}
                     onChange={(e) => {
-                      const t = templates.find(temp => temp.id === Number(e.target.value));
-                      setSelectedTemplate(t || null);
-                      setMessageText(t ? t.contenu : '');
-                      if (t) setCanal(t.canal);
+                      const tmpl = templates.find(temp => temp.id === Number(e.target.value));
+                      setSelectedTemplate(tmpl || null);
+                      setMessageText(tmpl ? tmpl.contenu : '');
+                      if (tmpl) setCanal(tmpl.canal);
                     }}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 italic"
                   >
-                    <option value="">Texte Libre (Sans modèle)</option>
-                    {templates.map(t => <option key={t.id} value={t.id}>{t.titre}</option>)}
+                    <option value="">{t('free_text_no_template')}</option>
+                    {templates.map(tmpl => <option key={tmpl.id} value={tmpl.id}>{tmpl.titre}</option>)}
                   </select>
                 </div>
 
                 <div className="space-y-4 italic">
-                  <label className="text-xs font-bold text-gray-400 uppercase italic">Contenu du message</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase italic">{t('message_content')}</label>
                   <div className="relative italic">
                     <div className="absolute inset-0 p-6 pointer-events-none text-sm leading-relaxed whitespace-pre-wrap break-words opacity-0">
                       {messageText}
@@ -845,7 +853,7 @@ export function Communications() {
                       onChange={(e) => {
                         setMessageText(e.target.value);
                       }}
-                      placeholder="Composez votre message ici..."
+                      placeholder={t('compose_message_placeholder')}
                       className="w-full bg-gray-50 border border-gray-200 rounded-2xl p-6 outline-none focus:ring-2 focus:ring-blue-500/20 text-sm leading-relaxed italic z-10 relative bg-transparent"
                     />
                     <div className="absolute top-2 right-2 flex gap-1 italic z-20">
@@ -859,7 +867,7 @@ export function Communications() {
                   <div className="p-4 bg-gray-900 rounded-2xl border border-gray-800 shadow-inner">
                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                        <Layout className="w-3 h-3" />
-                       Aperçu du rendu final
+                       {t('final_render_preview')}
                     </p>
                     <p className="text-sm text-gray-300 leading-relaxed font-mono">
                        {messageText.split(/(\[.*?\])/).map((part, i) => (
@@ -873,7 +881,7 @@ export function Communications() {
                   <div className="flex bg-blue-50 border border-blue-100 p-4 rounded-2xl italic">
                     <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5 italic" />
                     <p className="text-[11px] text-blue-700 italic ml-3">
-                      Les variables dynamiques comme <span className="font-bold underline italic">[Nom_Parent]</span> seront automatiquement remplacées pour chacun des <span className="font-bold italic">{getTargetCount()} destinataires</span>.
+                      {t('dynamic_variables_notice').replace('{count}', String(getTargetCount()))}
                     </p>
                   </div>
                 </div>
@@ -884,7 +892,7 @@ export function Communications() {
                   onClick={() => setIsCampaignModalOpen(false)}
                   className="px-6 py-2 rounded-xl text-sm font-medium text-gray-500 hover:bg-white transition-colors italic"
                 >
-                  Annuler
+                  {t('cancel')}
                 </button>
                 <button 
                   onClick={handleSendCampaign}
@@ -899,7 +907,7 @@ export function Communications() {
                   ) : (
                     <Send className="w-4 h-4 italic" />
                   )}
-                  Lancer l'Envoi ({getTargetCount()})
+                  {t('start_send_count').replace('{count}', String(getTargetCount()))}
                 </button>
               </div>
             </motion.div>
@@ -924,20 +932,20 @@ export function Communications() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl p-8 italic"
             >
-              <h2 className="text-xl font-bold mb-6 text-black italic">Créer un Nouveau Modèle</h2>
+              <h2 className="text-xl font-bold mb-6 text-black italic">{t('create_new_template')}</h2>
               <div className="space-y-4 text-black italic">
                  <div className="space-y-2 italic">
-                   <label className="text-xs font-bold text-gray-400 italic uppercase">Titre du Modèle</label>
+                   <label className="text-xs font-bold text-gray-400 italic uppercase">{t('template_title')}</label>
                    <input 
                      type="text" 
                      value={newTemplateTitle}
                      onChange={(e) => setNewTemplateTitle(e.target.value)}
                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 italic outfit text-black outline-none focus:ring-2 focus:ring-blue-500/20" 
-                     placeholder="Ex: Avis de retard" 
+                     placeholder={t('example_delay_notice')} 
                    />
                  </div>
                  <div className="space-y-2 italic text-black">
-                   <label className="text-xs font-bold text-gray-400 italic uppercase">Canal Défaut</label>
+                   <label className="text-xs font-bold text-gray-400 italic uppercase">{t('default_channel')}</label>
                    <select 
                      value={newTemplateCanal}
                      onChange={(e) => setNewTemplateCanal(e.target.value as any)}
@@ -949,18 +957,18 @@ export function Communications() {
                    </select>
                  </div>
                  <div className="space-y-2 italic">
-                   <label className="text-xs font-bold text-gray-400 italic uppercase">Structure du message</label>
+                   <label className="text-xs font-bold text-gray-400 italic uppercase">{t('message_structure')}</label>
                    <textarea 
                      rows={4} 
                      value={newTemplateContenu}
                      onChange={(e) => setNewTemplateContenu(e.target.value)}
                      className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 italic text-black outfit outline-none focus:ring-2 focus:ring-blue-500/20" 
-                     placeholder="Utilisez les [] pour les variables..." 
+                     placeholder={t('variables_placeholder')} 
                    />
                  </div>
               </div>
               <div className="mt-8 flex justify-end gap-3 italic">
-                 <button onClick={() => setIsTemplateModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-colors italic">Fermer</button>
+                 <button onClick={() => setIsTemplateModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-colors italic">{t('close')}</button>
                  <button 
                    onClick={handleCreateTemplate}
                    disabled={!newTemplateTitle || !newTemplateContenu}
@@ -969,7 +977,7 @@ export function Communications() {
                      (!newTemplateTitle || !newTemplateContenu) && "opacity-50 cursor-not-allowed"
                    )}
                  >
-                   Enregistrer
+                   {t('save')}
                  </button>
               </div>
             </motion.div>

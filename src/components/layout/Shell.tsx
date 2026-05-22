@@ -67,12 +67,16 @@ interface ShellProps {
 }
 
 export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
-  const { canAccess, currentUser, logout, language, setLanguage, t } = useApp();
+  const { canAccess, currentUser, logout, language, setLanguage, t, searchQuery, setSearchQuery } = useApp();
   const [collapsed, setCollapsed] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isLangDropdownOpen, setIsLangDropdownOpen] = React.useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = React.useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    setSearchQuery('');
+  }, [activeTab]);
 
   const menuItems = [
     { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard },
@@ -87,7 +91,7 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
   ].filter(item => canAccess(item.id));
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       {/* Sidebar - Desktop */}
       <motion.aside
         animate={{ width: collapsed ? 80 : 260 }}
@@ -147,7 +151,9 @@ export function Shell({ children, activeTab, setActiveTab }: ShellProps) {
               <input
                 type="text"
                 placeholder={t('search_placeholder')}
-                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-black"
               />
             </div>
           </div>

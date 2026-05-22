@@ -62,8 +62,30 @@ export function AdminSettings() {
     updateRole,
     deleteRole,
     config,
-    updateConfig
+    updateConfig,
+    searchQuery
   } = useApp();
+
+  const filteredUsers = React.useMemo(() => {
+    if (!searchQuery) return utilisateurs;
+    const query = searchQuery.toLowerCase();
+    return utilisateurs.filter(user => 
+      user.nom.toLowerCase().includes(query) ||
+      user.prenom.toLowerCase().includes(query) ||
+      user.email.toLowerCase().includes(query) ||
+      (roles.find(r => r.code === user.role)?.libelle || user.role).toLowerCase().includes(query)
+    );
+  }, [utilisateurs, searchQuery, roles]);
+
+  const filteredAuditLogs = React.useMemo(() => {
+    if (!searchQuery) return auditLogs;
+    const query = searchQuery.toLowerCase();
+    return auditLogs.filter(log => 
+      log.utilisateur_nom.toLowerCase().includes(query) ||
+      log.action.toLowerCase().includes(query) ||
+      (log.adresse_ip || 'Internal').toLowerCase().includes(query)
+    );
+  }, [auditLogs, searchQuery]);
   
   const [activeTab, setActiveTab] = React.useState<'users' | 'roles' | 'logs' | 'backup' | 'scolarite'>('users');
   const [isModalOpen, setIsModalOpen] = React.useState(false);
@@ -127,10 +149,9 @@ export function AdminSettings() {
         <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6">
           <AlertTriangle className="w-10 h-10 text-red-500" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-800">Accès Refusé</h2>
+        <h2 className="text-2xl font-bold text-gray-800">{t('access_denied')}</h2>
         <p className="text-gray-500 mt-2 max-w-md">
-          Cette section est exclusivement réservée à l'administrateur principal. 
-          Veuillez contacter le directeur pour toute modification de compte.
+          {t('access_denied_desc')}
         </p>
       </div>
     );
@@ -141,8 +162,8 @@ export function AdminSettings() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Espace Super Admin</h1>
-          <p className="text-gray-500 text-sm italic">Gestion du personnel et traçabilité des actions.</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('super_admin_space')}</h1>
+          <p className="text-gray-500 text-sm italic">{t('admin_settings_subtitle')}</p>
         </div>
         <div>
           {activeTab === 'users' && (
@@ -151,7 +172,7 @@ export function AdminSettings() {
               className="px-6 py-3 bg-slate-900 text-white rounded-2xl text-sm font-bold flex items-center gap-2 hover:bg-slate-800 shadow-xl shadow-slate-900/10 transition-all cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
-              Créer un compte personnel
+              {t('create_staff_account')}
             </button>
           )}
           {activeTab === 'roles' && (
@@ -169,7 +190,7 @@ export function AdminSettings() {
               className="px-6 py-3 bg-slate-900 text-white rounded-2xl text-sm font-bold flex items-center gap-2 hover:bg-slate-800 shadow-xl shadow-slate-900/10 transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              Créer un nouveau rôle
+              {t('create_new_role')}
             </button>
           )}
         </div>
@@ -185,7 +206,7 @@ export function AdminSettings() {
           )}
         >
           <UserCircle className="w-4 h-4" />
-          Utilisateurs
+          {t('users_tab')}
         </button>
         <button 
           onClick={() => setActiveTab('roles')}
@@ -195,7 +216,7 @@ export function AdminSettings() {
           )}
         >
           <ShieldCheck className="w-4 h-4" />
-          Configuration des Rôles
+          {t('roles_config_tab')}
         </button>
         <button 
           onClick={() => setActiveTab('logs')}
@@ -205,7 +226,7 @@ export function AdminSettings() {
           )}
         >
           <History className="w-4 h-4" />
-          Journal d'Audit (Logs)
+          {t('audit_logs_tab')}
         </button>
         <button 
           onClick={() => setActiveTab('backup')}
@@ -215,7 +236,7 @@ export function AdminSettings() {
           )}
         >
           <Database className="w-4 h-4" />
-          Sauvegarde (Backup)
+          {t('backup_tab')}
         </button>
         <button 
           onClick={() => setActiveTab('scolarite')}
@@ -225,7 +246,7 @@ export function AdminSettings() {
           )}
         >
           <CreditCard className="w-4 h-4" />
-          Frais Scolaires
+          {t('school_fees_tab')}
         </button>
       </div>
 
@@ -242,16 +263,16 @@ export function AdminSettings() {
               <table className="w-full text-left">
                 <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-bold tracking-widest border-b border-gray-100">
                   <tr>
-                    <th className="px-8 py-5">Personnel</th>
-                    <th className="px-8 py-5">Email</th>
-                    <th className="px-8 py-5">Rôle</th>
-                    <th className="px-8 py-5">Date Création</th>
-                    <th className="px-8 py-5 text-center">Statut</th>
-                    <th className="px-8 py-5 text-right">Actions</th>
+                    <th className="px-8 py-5">{t('staff')}</th>
+                    <th className="px-8 py-5">{t('email')}</th>
+                    <th className="px-8 py-5">{t('role')}</th>
+                    <th className="px-8 py-5">{t('creation_date')}</th>
+                    <th className="px-8 py-5 text-center">{t('status')}</th>
+                    <th className="px-8 py-5 text-right">{t('actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50 italic">
-                  {utilisateurs.map((user) => (
+                  {filteredUsers.map((user) => (
                     <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-3">
@@ -284,7 +305,7 @@ export function AdminSettings() {
                             onChange={async (e) => {
                               const success = await updateUserRole(user.id, e.target.value);
                               if (!success) {
-                                alert("Une erreur est survenue lors de la modification du rôle.");
+                                alert(t('role_update_error'));
                               }
                             }}
                             className={cn(
@@ -342,11 +363,11 @@ export function AdminSettings() {
               <table className="w-full text-left">
                 <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-bold tracking-widest border-b border-gray-100">
                   <tr>
-                    <th className="px-8 py-5">Rôle</th>
-                    <th className="px-8 py-5">Description</th>
-                    <th className="px-8 py-5">Modules Accessibles</th>
-                    <th className="px-8 py-5 text-center">Personnel</th>
-                    <th className="px-8 py-5 text-right">Actions</th>
+                    <th className="px-8 py-5">{t('role')}</th>
+                    <th className="px-8 py-5">{t('description')}</th>
+                    <th className="px-8 py-5">{t('modules_permissions')}</th>
+                    <th className="px-8 py-5 text-center">{t('staff')}</th>
+                    <th className="px-8 py-5 text-right">{t('actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50 italic">
@@ -370,21 +391,21 @@ export function AdminSettings() {
                         </td>
                         <td className="px-8 py-5 max-w-xs">
                           <p className="text-sm text-slate-600 line-clamp-2 not-italic font-medium">
-                            {role.description || "Aucune description renseignée."}
+                            {role.description || t('no_description_provided')}
                           </p>
                         </td>
                         <td className="px-8 py-5">
                           <div className="flex flex-wrap gap-1 max-w-md not-italic">
                             {role.code === 'SUPER_ADMIN' ? (
                               <span className="px-2 py-0.5 rounded bg-slate-900 text-white font-bold text-[10px]">
-                                Accès Total
+                                {t('total_access')}
                               </span>
                             ) : role.permissions.length === 0 ? (
-                              <span className="text-[10px] text-slate-400 italic">Aucun accès</span>
+                              <span className="text-[10px] text-slate-400 italic">{t('no_access')}</span>
                             ) : (
                               role.permissions.map(p => (
                                 <span key={p} className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200/50 text-slate-600 text-[10px] font-medium">
-                                  {PERM_LABELS[p] || p}
+                                  {t(`perm_short_${p}`) || p}
                                 </span>
                               ))
                             )}
@@ -402,7 +423,7 @@ export function AdminSettings() {
                           {role.code === 'SUPER_ADMIN' ? (
                             <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 font-bold bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 select-none">
                               <Lock className="w-3.5 h-3.5" />
-                              Système
+                              {t('system_label')}
                             </span>
                           ) : (
                             <div className="flex items-center gap-2 justify-end">
@@ -418,22 +439,22 @@ export function AdminSettings() {
                                   setIsRoleModalOpen(true);
                                 }}
                                 className="p-2 text-slate-400 hover:text-slate-950 hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
-                                title="Modifier le rôle"
+                                title={t('edit_role')}
                               >
                                 <Edit3 className="w-4 h-4" />
                               </button>
                               <button 
                                 onClick={async () => {
                                   if (userCount > 0) {
-                                    alert(`Impossible de supprimer ce rôle car il est actuellement attribué à ${userCount} utilisateur(s). Veuillez d'abord réaffecter ces utilisateurs.`);
+                                    alert(t('cannot_delete_role_assigned').replace('{count}', userCount.toString()));
                                     return;
                                   }
-                                  if (confirm(`Êtes-vous sûr de vouloir supprimer le rôle "${role.libelle}" ?`)) {
+                                  if (confirm(t('confirm_delete_role').replace('{name}', role.libelle))) {
                                     await deleteRole(role.id);
                                   }
                                 }}
                                 className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
-                                title="Supprimer le rôle"
+                                title={t('delete_role')}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -463,24 +484,24 @@ export function AdminSettings() {
                   <Activity className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800">Journal des Événements</h3>
-                  <p className="text-xs text-slate-400 font-medium">Surveillance en temps réel des actions administrateur.</p>
+                  <h3 className="font-bold text-slate-800">{t('event_log')}</h3>
+                  <p className="text-xs text-slate-400 font-medium">{t('realtime_monitoring_desc')}</p>
                 </div>
               </div>
-              <button className="text-xs font-bold text-slate-900 hover:underline">Exporter CSV</button>
+              <button className="text-xs font-bold text-slate-900 hover:underline">{t('export_csv')}</button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-bold tracking-widest">
                   <tr>
-                    <th className="px-8 py-4">Utilisateur</th>
-                    <th className="px-8 py-4">Action</th>
-                    <th className="px-8 py-4">Date & Heure</th>
-                    <th className="px-8 py-4">Adresse IP</th>
+                    <th className="px-8 py-4">{t('user')}</th>
+                    <th className="px-8 py-4">{t('action')}</th>
+                    <th className="px-8 py-4">{t('date_time')}</th>
+                    <th className="px-8 py-4">{t('ip_address')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {auditLogs.map((log) => (
+                  {filteredAuditLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-8 py-4 font-bold text-slate-800">{log.utilisateur_nom}</td>
                       <td className="px-8 py-4">
@@ -572,7 +593,7 @@ export function AdminSettings() {
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-800">{t('config_school_fees')}</h3>
-                <p className="text-xs text-slate-400 mt-1">Configurez les tarifs d'inscription et mensualités de scolarité globaux pour le Daara.</p>
+                <p className="text-xs text-slate-400 mt-1">{t('school_fees_config_desc')}</p>
               </div>
             </div>
 
@@ -586,7 +607,7 @@ export function AdminSettings() {
                 if (success) {
                   alert(t('save_config_success'));
                 } else {
-                  alert("Erreur lors de la mise à jour des tarifs.");
+                  alert(t('fees_update_error'));
                 }
               }} 
               className="space-y-4 font-medium"
@@ -647,8 +668,8 @@ export function AdminSettings() {
                 <Lock className="w-12 h-12 text-slate-50 opacity-10 rotate-12" />
               </div>
               
-              <h2 className="text-2xl font-extrabold mb-2 text-slate-900">Nouveau Personnel</h2>
-              <p className="text-sm text-slate-400 mb-8 italic">Affectez un rôle et une identité numérique sécurisée.</p>
+              <h2 className="text-2xl font-extrabold mb-2 text-slate-900">{t('new_staff')}</h2>
+              <p className="text-sm text-slate-400 mb-8 italic">{t('new_staff_subtitle')}</p>
 
               <form className="space-y-6 text-black" onSubmit={(e) => {
                 e.preventDefault();
@@ -661,7 +682,7 @@ export function AdminSettings() {
               }}>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Prénom</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{t('first_name')}</label>
                     <input 
                       type="text" 
                       required 
@@ -671,7 +692,7 @@ export function AdminSettings() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Nom de famille</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{t('last_name')}</label>
                     <input 
                       type="text" 
                       required 
@@ -683,7 +704,7 @@ export function AdminSettings() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Adresse Email Pro</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{t('professional_email')}</label>
                   <input 
                     type="email" 
                     required 
@@ -694,7 +715,7 @@ export function AdminSettings() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Rôle & Permissions</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{t('role_permissions')}</label>
                   <div className="relative">
                      <select 
                         required 
@@ -704,7 +725,7 @@ export function AdminSettings() {
                       >
                         {roles.map(r => (
                           <option key={r.id} value={r.code}>
-                            {r.libelle} {r.code === 'SUPER_ADMIN' ? '(Directeur)' : ''}
+                            {r.libelle} {r.code === 'SUPER_ADMIN' ? `(${t('director')})` : ''}
                           </option>
                         ))}
                       </select>
@@ -715,7 +736,7 @@ export function AdminSettings() {
                 <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                   <p className="text-xs text-amber-700 leading-relaxed font-medium">
-                    Un mot de passe temporaire sera généré automatiquement. L'utilisateur devra le modifier lors de sa première connexion.
+                    {t('temp_password_warning')}
                   </p>
                 </div>
 
@@ -725,13 +746,13 @@ export function AdminSettings() {
                     onClick={() => setIsModalOpen(false)} 
                     className="flex-1 py-4 text-slate-400 font-bold hover:text-slate-600 transition-colors cursor-pointer"
                   >
-                    Annuler
+                    {t('cancel')}
                   </button>
                   <button 
                     type="submit" 
                     className="flex-1 bg-slate-900 text-white rounded-[20px] py-4 font-bold shadow-2xl shadow-slate-900/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
                   >
-                    Valider le Compte
+                    {t('validate_account_btn')}
                   </button>
                 </div>
               </form>
@@ -762,10 +783,10 @@ export function AdminSettings() {
               </div>
               
               <h2 className="text-2xl font-extrabold mb-2 text-slate-900">
-                {editingRole ? 'Modifier le Rôle' : 'Nouveau Rôle'}
+                {editingRole ? t('edit_role') : t('new_role')}
               </h2>
               <p className="text-sm text-slate-400 mb-8 italic">
-                {editingRole ? 'Modifiez les informations et les privilèges d\'accès du rôle.' : 'Configurez les accès et l\'identité pour un nouveau rôle.'}
+                {editingRole ? t('edit_role_subtitle') : t('new_role_subtitle')}
               </p>
 
               <form 
@@ -774,11 +795,11 @@ export function AdminSettings() {
                   e.preventDefault();
                   
                   if (!roleForm.libelle.trim()) {
-                    alert("Le libellé est requis.");
+                    alert(t('libelle_required'));
                     return;
                   }
                   if (!roleForm.code.trim()) {
-                    alert("Le code du rôle est requis.");
+                    alert(t('role_code_required'));
                     return;
                   }
                   
@@ -803,13 +824,13 @@ export function AdminSettings() {
                   if (success) {
                     setIsRoleModalOpen(false);
                   } else {
-                    alert(editingRole ? "Erreur lors de la modification du rôle." : "Erreur lors de la création du rôle. Le code est peut-être déjà utilisé.");
+                    alert(editingRole ? t('role_update_error') : t('role_create_error_code'));
                   }
                 }}
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Nom / Libellé</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{t('role_label')}</label>
                     <input 
                       type="text" 
                       required 
@@ -835,7 +856,7 @@ export function AdminSettings() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Code du Rôle</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{t('role_code')}</label>
                     <input 
                       type="text" 
                       required 
@@ -856,18 +877,18 @@ export function AdminSettings() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Description</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{t('description')}</label>
                   <textarea 
                     rows={2}
                     className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 focus:border-slate-900 outline-none transition-colors text-slate-700 font-medium"
-                    placeholder="Décrivez les responsabilités de ce rôle..."
+                    placeholder={t('role_desc_placeholder')}
                     value={roleForm.description}
                     onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })}
                   />
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1 block">Modules & Permissions d'Accès</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1 block">{t('modules_permissions')}</label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {ALL_PERMISSIONS.map((perm) => {
                       const isChecked = roleForm.permissions.includes(perm.code);
@@ -897,8 +918,8 @@ export function AdminSettings() {
                             className="mt-1 rounded border-slate-300 text-slate-900 focus:ring-slate-900 pointer-events-none"
                           />
                           <div>
-                            <p className="text-xs font-bold text-slate-800">{perm.label}</p>
-                            <p className="text-[10px] text-slate-400 mt-1 leading-normal font-medium">{perm.description}</p>
+                            <p className="text-xs font-bold text-slate-800">{t(`perm_${perm.code}_label`) || perm.label}</p>
+                            <p className="text-[10px] text-slate-400 mt-1 leading-normal font-medium">{t(`perm_${perm.code}_desc`) || perm.description}</p>
                           </div>
                         </div>
                       );
@@ -912,13 +933,13 @@ export function AdminSettings() {
                     onClick={() => setIsRoleModalOpen(false)} 
                     className="flex-1 py-4 text-slate-400 font-bold hover:text-slate-600 transition-colors cursor-pointer"
                   >
-                    Annuler
+                    {t('cancel')}
                   </button>
                   <button 
                     type="submit" 
                     className="flex-1 bg-slate-900 text-white rounded-[20px] py-4 font-bold shadow-2xl shadow-slate-900/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
                   >
-                    {editingRole ? 'Enregistrer' : 'Créer le Rôle'}
+                    {editingRole ? t('save') : t('create_role_btn')}
                   </button>
                 </div>
               </form>

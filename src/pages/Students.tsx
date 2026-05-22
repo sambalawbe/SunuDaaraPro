@@ -50,12 +50,28 @@ const ProgressBar = ({ value, max = 60, label }: { value: number; max?: number; 
 };
 
 export function Students() {
-  const { eleves, enseignants, updateEleve, addEleve, deleteEleve, paiements, config, addPaiement, deletePaiement, t } = useApp();
+  const { eleves, enseignants, updateEleve, addEleve, deleteEleve, paiements, config, addPaiement, deletePaiement, t, language, searchQuery, setSearchQuery } = useApp();
   const [selectedEleve, setSelectedEleve] = React.useState<Eleve | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [modalMode, setModalMode] = React.useState<'add' | 'edit' | 'view'>('view');
   const [activeFormTab, setActiveFormTab] = React.useState<'perso' | 'coran' | 'tuteur'>('perso');
   const [activeViewTab, setActiveViewTab] = React.useState<'infos' | 'paiements'>('infos');
+  const [levelFilter, setLevelFilter] = React.useState('Tous');
+  const [pensionFilter, setPensionFilter] = React.useState('Tous');
+
+  const filteredEleves = React.useMemo(() => {
+    return eleves.filter(eleve => {
+      const nomComplet = `${eleve.prenom} ${eleve.nom}`.toLowerCase();
+      const matchesSearch = nomComplet.includes(searchQuery.toLowerCase()) ||
+                            eleve.matricule.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesLevel = levelFilter === 'Tous' || eleve.niveau_actuel === levelFilter;
+      
+      const matchesPension = pensionFilter === 'Tous' || eleve.statut_pension === pensionFilter;
+      
+      return matchesSearch && matchesLevel && matchesPension;
+    });
+  }, [eleves, searchQuery, levelFilter, pensionFilter]);
 
   const openModal = (eleve: Eleve | null, mode: 'add' | 'edit' | 'view') => {
     setSelectedEleve(eleve);
@@ -76,22 +92,20 @@ export function Students() {
   const renderSuiviPaiement = (eleve: Eleve) => {
     const pInscription = getPaiementInscription(eleve.id);
     const currentYear = new Date().getFullYear();
-    const MOIS = [
-      { id: '01', name: 'Janvier' },
-      { id: '02', name: 'Février' },
-      { id: '03', name: 'Mars' },
-      { id: '04', name: 'Avril' },
-      { id: '05', name: 'Mai' },
-      { id: '06', name: 'Juin' },
-      { id: '07', name: 'Juillet' },
-      { id: '08', name: 'Août' },
-      { id: '09', name: 'Septembre' },
-      { id: '10', name: 'Octobre' },
-      { id: '11', name: 'Novembre' },
-      { id: '12', name: 'Décembre' }
-    ];
+    const MOIS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+
+    const getMonthName = (monthId: string) => {
+      const date = new Date(currentYear, Number(monthId) - 1, 1);
+      const name = date.toLocaleString(language === 'ar' ? 'ar-EG' : language === 'wo' ? 'wo-SN' : 'fr-FR', { month: 'long' });
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    };
 
     const handlePayInscription = async () => {
+      if (!confirm(t('confirm_payment_inscription_text')
+        .replace('{amount}', config.frais_inscription.toLocaleString())
+        .replace('{name}', `${eleve.prenom} ${eleve.nom}`))) {
+        return;
+      }
       const success = await addPaiement({
         eleve_id: eleve.id,
         type_paiement: 'Inscription',
@@ -100,11 +114,18 @@ export function Students() {
       if (success) {
         alert(t('payment_success'));
       } else {
-        alert("Erreur lors de l'enregistrement du paiement.");
+        alert(t('payment_error'));
       }
     };
 
     const handlePayMensuel = async (monthCode: string) => {
+      const monthName = getMonthName(monthCode);
+      if (!confirm(t('confirm_payment_mensuel_text')
+        .replace('{month}', monthName)
+        .replace('{amount}', config.mensualite.toLocaleString())
+        .replace('{name}', `${eleve.prenom} ${eleve.nom}`))) {
+        return;
+      }
       const success = await addPaiement({
         eleve_id: eleve.id,
         type_paiement: 'Mensualité',
@@ -114,15 +135,15 @@ export function Students() {
       if (success) {
         alert(t('payment_success'));
       } else {
-        alert("Erreur lors de l'enregistrement du paiement.");
+        alert(t('payment_error'));
       }
     };
 
     const handleDelete = async (id: number) => {
-      if (confirm("Voulez-vous vraiment annuler ce paiement ? Cela le supprimera de la caisse.")) {
+      if (confirm(t('confirm_payment_cancel_text'))) {
         const success = await deletePaiement(id);
         if (!success) {
-          alert("Erreur lors de la suppression.");
+          alert(t('delete_error'));
         }
       }
     };
@@ -143,19 +164,19 @@ export function Students() {
         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-black">
           <div>
             <h4 className="font-bold text-gray-800">{t('registration_fee')}</h4>
-            <p className="text-xs text-gray-500">Frais requis pour valider l'inscription</p>
+            <p className="text-xs text-gray-500">{language === 'ar' ? 'الرسوم المطلوبة لتأكيد التسجيل' : language === 'wo' ? 'Koppar yu ñu laaj ngir mbindoug ndongo bi' : "Frais requis pour valider l'inscription"}</p>
           </div>
           {pInscription ? (
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-green-100 text-green-700">Payé</span>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-green-100 text-green-700">{t('paye')}</span>
                 <p className="text-[10px] text-gray-400 mt-1">{pInscription.recu_numero}</p>
               </div>
               <button 
                 type="button"
                 onClick={() => handleDelete(pInscription.id)}
                 className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                title="Annuler le paiement"
+                title={t('cancel')}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -166,20 +187,21 @@ export function Students() {
               onClick={handlePayInscription}
               className="bg-green-700 hover:bg-green-800 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all shadow-sm"
             >
-              Régler {config.frais_inscription.toLocaleString()} CFA
+              {t('confirm')} ({config.frais_inscription.toLocaleString()} CFA)
             </button>
           )}
         </div>
 
         <div className="space-y-3">
-          <h4 className="font-bold text-gray-800">Mensualités {currentYear}</h4>
+          <h4 className="font-bold text-gray-800">{t('monthly_fees')} {currentYear}</h4>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {MOIS.map(m => {
-              const monthStr = `${currentYear}-${m.id}`;
+            {MOIS.map(mId => {
+              const monthStr = `${currentYear}-${mId}`;
               const p = getPaiementMensuel(eleve.id, monthStr);
+              const mName = getMonthName(mId);
               return (
                 <div 
-                  key={m.id}
+                  key={mId}
                   className={cn(
                     "p-3 rounded-2xl border flex flex-col justify-between h-28 transition-all relative overflow-hidden",
                     p 
@@ -188,13 +210,13 @@ export function Students() {
                   )}
                 >
                   <div>
-                    <p className="text-xs font-bold text-gray-800">{m.name}</p>
+                    <p className="text-xs font-bold text-gray-800">{mName}</p>
                     <p className="text-[10px] text-gray-400">{currentYear}</p>
                   </div>
                   {p ? (
                     <div className="flex items-center justify-between mt-2">
                       <div>
-                        <span className="text-[10px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">Payé</span>
+                        <span className="text-[10px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">{t('paye')}</span>
                         <p className="text-[9px] text-gray-400 mt-1 truncate max-w-[80px]" title={p.recu_numero}>
                           {p.recu_numero.split('-').pop()}
                         </p>
@@ -203,7 +225,7 @@ export function Students() {
                         type="button"
                         onClick={() => handleDelete(p.id)}
                         className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                        title="Annuler le paiement"
+                        title={t('cancel')}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -211,10 +233,10 @@ export function Students() {
                   ) : (
                     <button 
                       type="button"
-                      onClick={() => handlePayMensuel(m.id)}
+                      onClick={() => handlePayMensuel(mId)}
                       className="mt-2 w-full text-center py-1 bg-gray-50 hover:bg-green-700 hover:text-white border border-gray-200 hover:border-green-700 text-[10px] font-bold text-gray-600 rounded-lg transition-all"
                     >
-                      Payer {config.mensualite.toLocaleString()} F
+                      {language === 'ar' ? 'دفع' : language === 'wo' ? 'Fay' : 'Payer'} {config.mensualite.toLocaleString()} F
                     </button>
                   )}
                 </div>
@@ -276,10 +298,10 @@ export function Students() {
   };
 
   const handleDeleteEleve = async (id: number) => {
-    if (confirm('Voulez-vous vraiment supprimer cet élève ?')) {
+    if (confirm(t('confirm_delete_student'))) {
       const success = await deleteEleve(id);
       if (!success) {
-        alert('Erreur lors de la suppression de l\'élève.');
+        alert(t('delete_error'));
       }
     }
   };
@@ -289,15 +311,15 @@ export function Students() {
       {/* Header & Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Gestion des Élèves</h1>
-          <p className="text-gray-500 text-sm">Gérez les inscriptions et le suivi de vos apprenants.</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('manage_students')}</h1>
+          <p className="text-gray-500 text-sm">{t('students_subtitle')}</p>
         </div>
         <button 
           onClick={() => openModal(null, 'add')}
           className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-green-700/20"
         >
           <Plus className="w-5 h-5" />
-          <span>Nouvel Élève</span>
+          <span>{t('add_student')}</span>
         </button>
       </div>
 
@@ -307,21 +329,31 @@ export function Students() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input 
             type="text" 
-            placeholder="Rechercher par nom, matricule..."
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
+            placeholder={t('search_placeholder')}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all text-black"
           />
         </div>
         <div className="flex items-center gap-2 min-w-max">
-          <select className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500/20">
-            <option>Tous les niveaux</option>
-            <option>Débutant</option>
-            <option>Intermédiaire</option>
-            <option>Hafiz</option>
+          <select 
+            value={levelFilter}
+            onChange={(e) => setLevelFilter(e.target.value)}
+            className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium"
+          >
+            <option value="Tous">{t('all_levels')}</option>
+            <option value="Débutant">{t('level_debutant')}</option>
+            <option value="Intermédiaire">{t('level_intermediaire')}</option>
+            <option value="Hafiz">{t('level_hafiz')}</option>
           </select>
-          <select className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500/20">
-            <option>Pension: Toutes</option>
-            <option>Interne</option>
-            <option>Externe</option>
+          <select 
+            value={pensionFilter}
+            onChange={(e) => setPensionFilter(e.target.value)}
+            className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium"
+          >
+            <option value="Tous">{t('all_pensions')}</option>
+            <option value="Interne">{t('intern')}</option>
+            <option value="Externe">{t('extern')}</option>
           </select>
           <button className="p-2 bg-gray-50 border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-100">
             <Filter className="w-5 h-5" />
@@ -335,16 +367,16 @@ export function Students() {
           <table className="w-full text-left">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-semibold">
               <tr>
-                <th className="px-6 py-4">Élève</th>
-                <th className="px-6 py-4">Matricule</th>
-                <th className="px-6 py-4">Progression (Hizb)</th>
-                <th className="px-6 py-4">Enseignant</th>
-                <th className="px-6 py-4">Scolarité</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4">{t('eleve')}</th>
+                <th className="px-6 py-4">{t('matricule')}</th>
+                <th className="px-6 py-4">{t('student_progression')}</th>
+                <th className="px-6 py-4">{t('role_enseignant')}</th>
+                <th className="px-6 py-4">{t('scolarite')}</th>
+                <th className="px-6 py-4 text-right">{t('actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {eleves.map((eleve) => (
+              {filteredEleves.map((eleve) => (
                 <motion.tr 
                   key={eleve.id}
                   initial={{ opacity: 0 }}
@@ -370,7 +402,7 @@ export function Students() {
                             {eleve.type_eleve === 'Payant' ? t('paying') : t('free')}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-500">{eleve.statut_pension}</p>
+                        <p className="text-xs text-gray-500">{eleve.statut_pension === 'Interne' ? t('intern') : t('extern')}</p>
                       </div>
                     </div>
                   </td>
@@ -390,7 +422,7 @@ export function Students() {
                         ? "bg-green-100 text-green-700" 
                         : "bg-orange-100 text-orange-700"
                     )}>
-                      {eleve.statut_prise_en_charge === 'Parrainé' ? 'Payant' : 'Non payant'}
+                      {eleve.statut_prise_en_charge === 'Parrainé' ? t('paying') : t('non_paye')}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -414,7 +446,11 @@ export function Students() {
         
         {/* Pagination */}
         <div className="p-4 border-t border-gray-100 flex items-center justify-between">
-          <p className="text-sm text-gray-500">Affichage de 1 à 3 sur 265 élèves</p>
+          <p className="text-sm text-gray-500">
+            {t('showing_x_of_y_students')
+              .replace('{count}', filteredEleves.length.toString())
+              .replace('{total}', eleves.length.toString())}
+          </p>
           <div className="flex gap-2">
             <button className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50" disabled>
               <ChevronLeft className="w-4 h-4" />
@@ -445,8 +481,8 @@ export function Students() {
             >
               <div className="p-6 border-b border-gray-100 flex items-center justify-between shrink-0">
                 <h2 className="text-xl font-bold text-gray-800">
-                  {modalMode === 'add' ? 'Inscription Nouvel Élève' : 
-                   modalMode === 'edit' ? 'Modifier l\'élève' : 'Fiche Profil Élève'}
+                  {modalMode === 'add' ? t('registration_new_student') : 
+                   modalMode === 'edit' ? t('edit_student') : t('student_profile')}
                 </h2>
                 <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                   <X className="w-6 h-6" />
@@ -471,19 +507,19 @@ export function Students() {
                             "absolute -bottom-2 -right-2 px-3 py-1 rounded-full text-[10px] font-bold border-2 border-white",
                             selectedEleve.statut === 'Actif' ? "bg-green-500 text-white" : "bg-gray-400 text-white"
                           )}>
-                            {selectedEleve.statut}
+                            {selectedEleve.statut === 'Actif' ? t('active') : t('inactive')}
                           </div>
                         </div>
                         <div className="flex-1 space-y-2">
                           <h3 className="text-3xl font-extrabold text-gray-900">{selectedEleve.prenom} {selectedEleve.nom}</h3>
                           <div className="flex flex-wrap gap-4 text-sm text-gray-500">
                             <span className="flex items-center gap-1"><User className="w-4 h-4" /> {selectedEleve.matricule}</span>
-                            <span className="flex items-center gap-1"><Home className="w-4 h-4" /> {selectedEleve.statut_pension}</span>
+                            <span className="flex items-center gap-1"><Home className="w-4 h-4" /> {selectedEleve.statut_pension === 'Interne' ? t('intern') : t('extern')}</span>
                             <span className={cn(
                               "flex items-center gap-1 font-bold",
                               selectedEleve.statut_prise_en_charge === 'Parrainé' ? "text-green-600" : "text-orange-600"
                             )}>
-                              <CreditCard className="w-4 h-4" /> {selectedEleve.statut_prise_en_charge === 'Parrainé' ? 'Payant' : 'Non payant'}
+                              <CreditCard className="w-4 h-4" /> {selectedEleve.statut_prise_en_charge === 'Parrainé' ? t('paying') : t('non_paye')}
                             </span>
                             <span className={cn(
                               "px-2 py-0.5 rounded text-xs font-bold uppercase border",
@@ -509,7 +545,7 @@ export function Students() {
                               activeViewTab === 'infos' ? "text-green-700" : "text-gray-400 hover:text-gray-600"
                             )}
                           >
-                            Informations Générales
+                            {t('general_info')}
                             {activeViewTab === 'infos' && (
                               <motion.div layoutId="view-tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-700" />
                             )}
@@ -537,19 +573,21 @@ export function Students() {
                           <div className="bg-gray-50 p-6 rounded-2xl space-y-4">
                             <div className="flex items-center gap-2 font-bold text-gray-700">
                               <BookOpen className="w-5 h-5 text-green-600" />
-                              <h4>Suivi Coranique</h4>
+                              <h4>{t('Quranic_tracking')}</h4>
                             </div>
                             <div className="space-y-3">
                               <div className="flex justify-between text-sm">
-                                <span className="text-gray-500">Niveau Actuel</span>
-                                <span className="font-semibold text-gray-800">{selectedEleve.niveau_actuel}</span>
+                                <span className="text-gray-500">{t('current_level')}</span>
+                                <span className="font-semibold text-gray-800">
+                                  {selectedEleve.niveau_actuel === 'Débutant' ? t('level_debutant') : selectedEleve.niveau_actuel === 'Intermédiaire' ? t('level_intermediaire') : t('level_hafiz')}
+                                </span>
                               </div>
                               <div className="flex justify-between text-sm">
-                                <span className="text-gray-500">Enseignant</span>
+                                <span className="text-gray-500">{t('role_enseignant')}</span>
                                 <span className="font-semibold text-gray-800">{selectedEleve.enseignant_nom}</span>
                               </div>
                               <div className="flex justify-between text-sm">
-                                <span className="text-gray-500">Dernier succès</span>
+                                <span className="text-gray-500">{t('last_success')}</span>
                                 <span className="font-medium text-gray-800">{selectedEleve.dernier_verset}</span>
                               </div>
                             </div>
@@ -559,7 +597,7 @@ export function Students() {
                           <div className="bg-gray-50 p-6 rounded-2xl space-y-4">
                             <div className="flex items-center gap-2 font-bold text-gray-700">
                               <Phone className="w-5 h-5 text-green-600" />
-                              <h4>Tuteur & Contacts</h4>
+                              <h4>{t('tutor_and_contacts')}</h4>
                             </div>
                             <div className="space-y-4">
                               <div className="flex items-center gap-4">
@@ -567,7 +605,7 @@ export function Students() {
                                   <User className="w-5 h-5" />
                                 </div>
                                 <div>
-                                  <p className="text-xs text-gray-400">Nom du Tuteur</p>
+                                  <p className="text-xs text-gray-400">{t('tutor_name')}</p>
                                   <p className="text-sm font-bold text-gray-800">{selectedEleve.tuteur_nom}</p>
                                 </div>
                               </div>
@@ -576,7 +614,7 @@ export function Students() {
                                   <Phone className="w-5 h-5" />
                                 </div>
                                 <div>
-                                  <p className="text-xs text-gray-400">Téléphone</p>
+                                  <p className="text-xs text-gray-400">{t('phone')}</p>
                                   <p className="text-sm font-bold text-gray-800">{selectedEleve.contact_parent}</p>
                                 </div>
                               </div>
@@ -595,7 +633,7 @@ export function Students() {
                       onClick={() => setIsModalOpen(false)}
                       className="px-6 py-2 rounded-xl text-sm font-medium text-gray-600 hover:bg-white transition-colors"
                     >
-                      Fermer
+                      {t('close')}
                     </button>
                   </div>
                 </>
@@ -606,9 +644,9 @@ export function Students() {
                     {/* Tabs for Form */}
                     <div className="flex border-b border-gray-100">
                       {[
-                        { id: 'perso', label: 'Infos Personnelles' },
-                        { id: 'coran', label: 'Suivi Coranique' },
-                        { id: 'tuteur', label: 'Tuteur & Logistique' }
+                        { id: 'perso', label: t('infos_personnelles') },
+                        { id: 'coran', label: t('Quranic_tracking') },
+                        { id: 'tuteur', label: t('tuteur_logistique') }
                       ].map((tab) => (
                         <button
                           key={tab.id}
@@ -631,19 +669,19 @@ export function Students() {
                       {/* Perso Tab */}
                       <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-6 md:col-span-2", activeFormTab !== 'perso' && 'hidden')}>
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-400 uppercase">Nom</label>
+                          <label className="text-xs font-bold text-gray-400 uppercase">{t('last_name')}</label>
                           <input name="nom" required type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedEleve?.nom} />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-400 uppercase">Prénom</label>
+                          <label className="text-xs font-bold text-gray-400 uppercase">{t('first_name')}</label>
                           <input name="prenom" required type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedEleve?.prenom} />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-400 uppercase">Date de Naissance</label>
+                          <label className="text-xs font-bold text-gray-400 uppercase">{t('birth_date')}</label>
                           <input name="date_naissance" type="date" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedEleve?.date_naissance ? selectedEleve.date_naissance.substring(0, 10) : ''} />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-400 uppercase">Lieu de Naissance</label>
+                          <label className="text-xs font-bold text-gray-400 uppercase">{t('birth_place')}</label>
                           <input name="lieu_naissance" type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedEleve?.lieu_naissance} />
                         </div>
                       </div>
@@ -651,26 +689,26 @@ export function Students() {
                       {/* Coran Tab */}
                       <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-6 md:col-span-2", activeFormTab !== 'coran' && 'hidden')}>
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-400 uppercase">Niveau Actuel</label>
+                          <label className="text-xs font-bold text-gray-400 uppercase">{t('current_level')}</label>
                           <select name="niveau_actuel" required className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedEleve?.niveau_actuel || 'Débutant'}>
-                            <option value="Débutant">Débutant</option>
-                            <option value="Intermédiaire">Intermédiaire</option>
-                            <option value="Hafiz">Hafiz</option>
+                            <option value="Débutant">{t('level_debutant')}</option>
+                            <option value="Intermédiaire">{t('level_intermediaire')}</option>
+                            <option value="Hafiz">{t('level_hafiz')}</option>
                           </select>
                         </div>
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-400 uppercase">Nombre de Hizb (0-60)</label>
+                          <label className="text-xs font-bold text-gray-400 uppercase">{t('hizb_count')}</label>
                           <input name="niveau_hizb" required type="number" min="0" max="60" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedEleve?.niveau_hizb || 0} />
                         </div>
                         <div className="space-y-2 md:col-span-2">
-                          <label className="text-xs font-bold text-gray-400 uppercase">Enseignant Responsable</label>
+                          <label className="text-xs font-bold text-gray-400 uppercase">{t('responsible_teacher')}</label>
                           <select 
                             name="enseignant_id"
                             required
                             className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20"
                             defaultValue={selectedEleve?.enseignant_id || ''}
                           >
-                            <option value="">Sélectionner un Oustaz</option>
+                            <option value="">{t('select_oustaz')}</option>
                             {enseignants.map((teacher) => (
                               <option key={teacher.id} value={teacher.id}>
                                 Oustaz {teacher.prenom} {teacher.nom}
@@ -683,23 +721,23 @@ export function Students() {
                       {/* Tuteur Tab */}
                       <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-6 md:col-span-2", activeFormTab !== 'tuteur' && 'hidden')}>
                          <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-400 uppercase">Nom du Tuteur</label>
+                          <label className="text-xs font-bold text-gray-400 uppercase">{t('tutor_name')}</label>
                           <input name="tuteur_nom" required type="text" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedEleve?.tuteur_nom} />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-400 uppercase">Téléphone du Tuteur</label>
+                          <label className="text-xs font-bold text-gray-400 uppercase">{t('tutor_phone')}</label>
                           <input name="contact_parent" required type="tel" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20" defaultValue={selectedEleve?.contact_parent} />
                         </div>
                         <div className="space-y-2 md:col-span-2">
-                          <label className="text-xs font-bold text-gray-400 uppercase">Pension</label>
+                          <label className="text-xs font-bold text-gray-400 uppercase">{t('pension')}</label>
                           <div className="flex gap-4">
                             <label className="flex items-center gap-2 cursor-pointer">
                               <input type="radio" name="statut_pension" value="Interne" className="accent-green-700" defaultChecked={selectedEleve ? selectedEleve.statut_pension === 'Interne' : true} />
-                              <span className="text-sm">Interne</span>
+                              <span className="text-sm">{t('intern')}</span>
                             </label>
                             <label className="flex items-center gap-2 cursor-pointer">
                               <input type="radio" name="statut_pension" value="Externe" className="accent-green-700" defaultChecked={selectedEleve?.statut_pension === 'Externe'} />
-                              <span className="text-sm">Externe</span>
+                              <span className="text-sm">{t('extern')}</span>
                             </label>
                           </div>
                         </div>
@@ -727,10 +765,10 @@ export function Students() {
                       onClick={() => setIsModalOpen(false)}
                       className="px-6 py-2 rounded-xl text-sm font-medium text-gray-600 hover:bg-white transition-colors"
                     >
-                      Fermer
+                      {t('close')}
                     </button>
                     <button type="submit" className="bg-green-700 text-white px-8 py-2 rounded-xl text-sm font-medium hover:bg-green-800 transition-all shadow-lg shadow-green-700/20">
-                      {modalMode === 'add' ? 'Enregistrer' : 'Mettre à jour'}
+                      {modalMode === 'add' ? t('save') : t('update')}
                     </button>
                   </div>
                 </form>

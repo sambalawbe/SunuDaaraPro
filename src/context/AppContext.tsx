@@ -46,6 +46,8 @@ interface AppContextType extends AppState {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string) => string;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
   updateEleve: (eleve: Eleve) => Promise<boolean>;
   addEleve: (eleve: Omit<Eleve, 'id' | 'date_inscription'>) => Promise<boolean>;
   deleteEleve: (id: number) => Promise<boolean>;
@@ -85,6 +87,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const saved = localStorage.getItem('sunudaara_lang');
     return (saved as Language) || 'fr';
   });
+
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   const setLanguage = (lang: Language) => {
     localStorage.setItem('sunudaara_lang', lang);
@@ -812,6 +816,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       language,
       setLanguage,
       t,
+      searchQuery,
+      setSearchQuery,
       addEleve, 
       updateEleve, 
       deleteEleve, 

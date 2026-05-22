@@ -38,7 +38,9 @@ export function Finances() {
     addPaiement,
     deletePaie, 
     deletePaiement, 
-    t 
+    t,
+    searchQuery,
+    setSearchQuery
   } = useApp();
   const [activeTab, setActiveTab] = React.useState<'dons' | 'depenses' | 'scolarite' | 'paies'>('dons');
   const [scolariteSubTab, setScolariteSubTab] = React.useState<'suivi' | 'transactions'>('suivi');
@@ -53,7 +55,6 @@ export function Finances() {
     mois: new Date().toISOString().slice(0, 7),
     montant: ''
   });
-  const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedPaiement, setSelectedPaiement] = React.useState<PaiementEleve | null>(null);
   const [selectedPaie, setSelectedPaie] = React.useState<Paie | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = React.useState<number | null>(null);
@@ -244,6 +245,14 @@ export function Finances() {
     const student = eleves.find(el => el.id === Number(paiementForm.eleve_id));
     if (!student) return;
 
+    const details = paiementForm.type_paiement === 'Mensualité' 
+      ? `la mensualité de ${paiementForm.mois}`
+      : "les frais d'inscription";
+
+    if (!confirm(`Voulez-vous vraiment enregistrer le paiement de ${details} (${Number(paiementForm.montant).toLocaleString()} CFA) pour ${student.prenom} ${student.nom} ?`)) {
+      return;
+    }
+
     const payload = {
       eleve_id: student.id,
       type_paiement: paiementForm.type_paiement,
@@ -282,39 +291,39 @@ export function Finances() {
 
   // Search filtering
   const filteredDons = dons.filter(d => 
-    d.donateur_nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (d.assignation || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    d.type_paiement.toLowerCase().includes(searchTerm.toLowerCase())
+    d.donateur_nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (d.assignation || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    d.type_paiement.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredDepenses = depenses.filter(d => 
-    d.libelle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    d.categorie.toLowerCase().includes(searchTerm.toLowerCase())
+    d.libelle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    d.categorie.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredPaiements = (paiements || []).filter(p => 
-    (p.eleve_nom || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.eleve_prenom || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.eleve_matricule || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.recu_numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.type_paiement.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.eleve_nom || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (p.eleve_prenom || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (p.eleve_matricule || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.recu_numero.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.type_paiement.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredElevesForScolarite = eleves.filter(e => 
     e.statut === 'Actif' && 
     e.type_eleve !== 'Gratuit' &&
     (
-      e.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.prenom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.matricule.toLowerCase().includes(searchTerm.toLowerCase())
+      e.nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.prenom.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.matricule.toLowerCase().includes(searchQuery.toLowerCase())
     )
   );
 
   const filteredPaies = (paies || []).filter(p => 
-    p.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.prenom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.role_personnel.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.recu_numero.toLowerCase().includes(searchTerm.toLowerCase())
+    p.nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.prenom.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.role_personnel.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.recu_numero.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const StatCard = ({ title, value, icon: Icon, color }: any) => (
@@ -334,8 +343,8 @@ export function Finances() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Finances & Trésorerie</h1>
-          <p className="text-gray-500 text-sm">Suivi solidaire des dons et dépenses de l'internat.</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('finance_title')}</h1>
+          <p className="text-gray-500 text-sm">{t('finance_subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           {activeTab === 'paies' ? (
@@ -491,8 +500,8 @@ export function Finances() {
             <input 
               type="text" 
               placeholder={t('search_placeholder') || "Rechercher..."}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500/10 outline-none"
             />
           </div>
@@ -1276,6 +1285,9 @@ export function Finances() {
                         <button 
                           type="button"
                           onClick={async () => {
+                            if (!confirm(`Voulez-vous vraiment enregistrer le paiement des frais d'inscription (${(config?.frais_inscription || 0).toLocaleString()} CFA) pour ${selectedStudentForPayments.prenom} ${selectedStudentForPayments.nom} ?`)) {
+                              return;
+                            }
                             const success = await addPaiement({
                               eleve_id: selectedStudentForPayments.id,
                               type_paiement: 'Inscription',
@@ -1351,6 +1363,9 @@ export function Finances() {
                               <button 
                                 type="button"
                                 onClick={async () => {
+                                  if (!confirm(`Voulez-vous vraiment enregistrer le paiement de la mensualité de ${m.name} (${(config?.mensualite || 0).toLocaleString()} CFA) pour ${selectedStudentForPayments.prenom} ${selectedStudentForPayments.nom} ?`)) {
+                                    return;
+                                  }
                                   const success = await addPaiement({
                                     eleve_id: selectedStudentForPayments.id,
                                     type_paiement: 'Mensualité',

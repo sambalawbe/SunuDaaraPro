@@ -24,12 +24,11 @@ import { ConsultationMedicale, FicheMedicale, Eleve } from '@/src/types';
 import { useApp } from '../context/AppContext';
 
 export function Health() {
-  const { eleves, consultations, fichesMedicales, addConsultation, updateFicheMedicale } = useApp();
+  const { eleves, consultations, fichesMedicales, addConsultation, updateFicheMedicale, searchQuery, setSearchQuery, t } = useApp();
   const [selectedStudentId, setSelectedStudentId] = React.useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const [isEditingRecord, setIsEditingRecord] = React.useState(false);
-  const [searchQuery, setSearchQuery] = React.useState('');
   
   // State for editing form
   const [editForm, setEditForm] = React.useState<FicheMedicale | null>(null);
@@ -87,11 +86,11 @@ export function Health() {
 
   const handleAddConsultation = () => {
     if (!selectedStudentId) {
-      alert("Veuillez sélectionner un élève.");
+      alert(t('please_select_student'));
       return;
     }
     if (!consultationForm.symptomes || !consultationForm.diagnostic || !consultationForm.traitement) {
-      alert("Veuillez remplir tous les champs obligatoires (Symptômes, Diagnostic et Traitement).");
+      alert(t('please_fill_fields_consultation'));
       return;
     }
     const student = eleves.find(e => e.id === selectedStudentId);
@@ -125,16 +124,16 @@ export function Health() {
   );
 
   const StatusBadge = ({ status }: { status: string }) => {
-    const config: Record<string, { color: string; icon: any }> = {
-      'En classe': { color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle2 },
-      'Repos': { color: 'bg-orange-100 text-orange-700 border-orange-200', icon: Clock },
-      'Évacué': { color: 'bg-red-100 text-red-700 border-red-200', icon: AlertCircle }
+    const config: Record<string, { color: string; icon: any; label: string }> = {
+      'En classe': { color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle2, label: t('status_in_class') },
+      'Repos': { color: 'bg-orange-100 text-orange-700 border-orange-200', icon: Clock, label: t('status_at_rest') },
+      'Évacué': { color: 'bg-red-100 text-red-700 border-red-200', icon: AlertCircle, label: t('status_evacuated') }
     };
-    const { color, icon: Icon } = config[status] || config['En classe'];
+    const { color, icon: Icon, label } = config[status] || config['En classe'];
     return (
       <span className={cn("px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1 w-fit", color)}>
         <Icon className="w-3 h-3" />
-        {status}
+        {label}
       </span>
     );
   };
@@ -175,15 +174,15 @@ export function Health() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Santé & Infirmerie</h1>
-          <p className="text-gray-500 text-sm">Gestion du suivi médical et des consultations du Daara.</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('health_infirmary')}</h1>
+          <p className="text-gray-500 text-sm">{t('health_subtitle')}</p>
         </div>
         <button 
           onClick={handleOpenModal}
           className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20 font-semibold"
         >
           <Plus className="w-5 h-5" />
-          <span>Nouvelle Consultation</span>
+          <span>{t('new_consultation')}</span>
         </button>
       </div>
 
@@ -191,19 +190,19 @@ export function Health() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard 
           icon={Stethoscope} 
-          label="Consultations (Aujourd'hui)" 
+          label={t('consultations_today')} 
           value={totalConsultationsToday} 
           color="bg-emerald-50 text-emerald-600" 
         />
         <StatCard 
           icon={Thermometer} 
-          label="Élèves au repos" 
+          label={t('students_at_rest')} 
           value={studentsInInfirmary} 
           color="bg-blue-50 text-blue-600" 
         />
         <StatCard 
           icon={ShieldAlert} 
-          label="Profils à risque (Allergies)" 
+          label={t('risk_profiles_allergies')} 
           value={criticalAllergiesCount} 
           color="bg-red-50 text-red-600" 
         />
@@ -214,14 +213,14 @@ export function Health() {
         <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
             <History className="w-5 h-5 text-emerald-600" />
-            Journal des Consultations
+            {t('consultations_journal')}
           </h2>
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input 
                 type="text" 
-                placeholder="Rechercher élève ou diagnostic..."
+                placeholder={t('search_student_or_diagnostic')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none w-64"
@@ -237,11 +236,11 @@ export function Health() {
           <table className="w-full text-left">
             <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase tracking-wider">
               <tr>
-                <th className="px-6 py-4">Élève</th>
-                <th className="px-6 py-4">Date & Heure</th>
-                <th className="px-6 py-4">Diagnostic</th>
-                <th className="px-6 py-4">Traitement</th>
-                <th className="px-6 py-4">Statut</th>
+                <th className="px-6 py-4">{t('eleve')}</th>
+                <th className="px-6 py-4">{t('date_time')}</th>
+                <th className="px-6 py-4">{t('initial_diagnostic')}</th>
+                <th className="px-6 py-4">{t('treatment_prescribed')}</th>
+                <th className="px-6 py-4">{t('status')}</th>
                 <th className="px-6 py-4"></th>
               </tr>
             </thead>
@@ -311,7 +310,7 @@ export function Health() {
                   <div className="p-2 bg-white/20 rounded-lg">
                     <Activity className="w-6 h-6" />
                   </div>
-                  <h2 className="text-xl font-bold">Nouvelle Consultation</h2>
+                  <h2 className="text-xl font-bold">{t('new_consultation')}</h2>
                 </div>
                 <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                   <X className="w-6 h-6" />
@@ -321,13 +320,13 @@ export function Health() {
               <div className="flex-1 overflow-y-auto p-8 space-y-6 text-black">
                 {/* Student Selection */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Sélectionner l'Élève</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('select_student')}</label>
                   <select 
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/20"
                     onChange={(e) => setSelectedStudentId(Number(e.target.value))}
                     value={selectedStudentId || ''}
                   >
-                    <option value="">Chercher un élève...</option>
+                    <option value="">{t('search_student_placeholder')}</option>
                     {eleves.map(e => (
                       <option key={e.id} value={e.id}>{e.prenom} {e.nom} ({e.matricule})</option>
                     ))}
@@ -351,10 +350,10 @@ export function Health() {
                             <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-start gap-4">
                               <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-1" />
                               <div>
-                                <p className="text-sm font-bold text-red-700">Alerte Allergies !</p>
+                                <p className="text-sm font-bold text-red-700">{t('allergy_alert')}</p>
                                 <p className="text-xs text-red-600 mt-1">
-                                  Cet élève présente les allergies suivantes : <span className="font-extrabold underline">{record.allergies}</span>.
-                                  Antécédents : {record.antecedents || 'Aucun'}
+                                  {t('student_has_allergies')} <span className="font-extrabold underline">{record.allergies}</span>.
+                                  {t('medical_history')} : {record.antecedents || 'Aucun'}
                                 </p>
                               </div>
                             </div>
@@ -364,8 +363,8 @@ export function Health() {
                             <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-start gap-4">
                               <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-1" />
                               <div>
-                                <p className="text-sm font-bold text-emerald-700">Aucune Allergie connue</p>
-                                <p className="text-xs text-emerald-600 mt-1">Rien à signaler dans le dossier médical de base.</p>
+                                <p className="text-sm font-bold text-emerald-700">{t('no_known_allergies')}</p>
+                                <p className="text-xs text-emerald-600 mt-1">{t('nothing_to_report_medical')}</p>
                               </div>
                             </div>
                           );
@@ -377,62 +376,62 @@ export function Health() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Symptômes déclarés</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('symptoms_reported')}</label>
                     <textarea 
                       rows={3}
                       required
                       value={consultationForm.symptomes}
                       onChange={(e) => setConsultationForm(prev => ({ ...prev, symptomes: e.target.value }))}
-                      placeholder="Ex: Fièvre, toux, maux de ventre..."
+                      placeholder={t('symptoms_placeholder')}
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none italic"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Diagnostic initial</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('initial_diagnostic')}</label>
                     <textarea 
                       rows={3}
                       required
                       value={consultationForm.diagnostic}
                       onChange={(e) => setConsultationForm(prev => ({ ...prev, diagnostic: e.target.value }))}
-                      placeholder="Ex: Suspection de paludisme..."
+                      placeholder={t('diagnostic_placeholder')}
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none italic"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Traitement prescrit & Médicaments</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('treatment_prescribed')}</label>
                   <input 
                     type="text" 
                     required
                     value={consultationForm.traitement}
                     onChange={(e) => setConsultationForm(prev => ({ ...prev, traitement: e.target.value }))}
-                    placeholder="Dosage, fréquence, durée..."
+                    placeholder={t('treatment_placeholder')}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/20 italic"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Statut post-consultation</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('post_consultation_status')}</label>
                     <select 
                       value={consultationForm.statut_eleve}
                       onChange={(e) => setConsultationForm(prev => ({ ...prev, statut_eleve: e.target.value as any }))}
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/20 italic"
                     >
-                      <option value="En classe">En classe</option>
-                      <option value="Repos">Repos au dortoir</option>
-                      <option value="Évacué">Évacué à l'hôpital</option>
+                      <option value="En classe">{t('status_in_class')}</option>
+                      <option value="Repos">{t('status_at_rest_dormitory')}</option>
+                      <option value="Évacué">{t('status_evacuated_hospital')}</option>
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Émetteur (Infirmier/Admin)</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('issuer_nurse_admin')}</label>
                     <input 
                       type="text" 
                       required
                       value={consultationForm.emetteur}
                       onChange={(e) => setConsultationForm(prev => ({ ...prev, emetteur: e.target.value }))}
-                      placeholder="Votre nom"
+                      placeholder={t('your_name_placeholder')}
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/20 italic"
                     />
                   </div>
@@ -444,13 +443,13 @@ export function Health() {
                   onClick={() => setIsModalOpen(false)}
                   className="px-6 py-2 rounded-xl text-sm font-medium text-gray-500 hover:bg-white transition-colors"
                 >
-                  Annuler
+                  {t('cancel')}
                 </button>
                 <button 
                   onClick={handleAddConsultation}
                   className="bg-emerald-600 text-white px-8 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
                 >
-                  Enregistrer la visite
+                  {t('record_visit')}
                 </button>
               </div>
             </motion.div>
@@ -477,7 +476,7 @@ export function Health() {
               className="fixed inset-y-0 right-0 w-full max-w-lg bg-white z-[120] shadow-2xl flex flex-col"
             >
               <div className="p-6 border-b border-gray-100 flex items-center justify-between shrink-0">
-                <h2 className="text-xl font-bold text-gray-800">Dossier Médical</h2>
+                <h2 className="text-xl font-bold text-gray-800">{t('medical_record')}</h2>
                 <button onClick={() => setIsDrawerOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                   <X className="w-6 h-6" />
                 </button>
@@ -488,7 +487,7 @@ export function Health() {
                   <form onSubmit={handleSaveEdit} className="space-y-6">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase">Groupe Sanguin</label>
+                        <label className="text-xs font-bold text-gray-400 uppercase">{t('blood_group')}</label>
                         <select 
                           value={editForm.groupe_sanguin}
                           onChange={(e) => setEditForm({ ...editForm, groupe_sanguin: e.target.value as any })}
@@ -505,7 +504,7 @@ export function Health() {
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase">Poids (kg)</label>
+                        <label className="text-xs font-bold text-gray-400 uppercase">{t('weight_kg')}</label>
                         <input 
                           type="number"
                           value={editForm.poids || ''}
@@ -516,28 +515,28 @@ export function Health() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase">Allergies</label>
+                      <label className="text-xs font-bold text-gray-400 uppercase">{t('allergies')}</label>
                       <textarea 
                         value={editForm.allergies}
                         onChange={(e) => setEditForm({ ...editForm, allergies: e.target.value })}
                         className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none min-h-[80px]"
-                        placeholder="Ex: Pénicilline, Arachides..."
+                        placeholder={t('allergies_placeholder')}
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase">Antécédents Médicaux</label>
+                      <label className="text-xs font-bold text-gray-400 uppercase">{t('medical_history')}</label>
                       <textarea 
                         value={editForm.antecedents || ''}
                         onChange={(e) => setEditForm({ ...editForm, antecedents: e.target.value })}
                         className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none min-h-[80px]"
-                        placeholder="Ex: Asthme, Chirurgie..."
+                        placeholder={t('history_placeholder')}
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase">Contact Urgence (Nom)</label>
+                        <label className="text-xs font-bold text-gray-400 uppercase">{t('emergency_contact_name')}</label>
                         <input 
                           type="text"
                           value={editForm.contact_urgence_nom}
@@ -546,7 +545,7 @@ export function Health() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase">Contact Urgence (Tél)</label>
+                        <label className="text-xs font-bold text-gray-400 uppercase">{t('emergency_contact_phone')}</label>
                         <input 
                           type="text"
                           value={editForm.contact_urgence_tel}
@@ -562,13 +561,13 @@ export function Health() {
                         onClick={() => setIsEditingRecord(false)}
                         className="flex-1 py-3 text-gray-500 font-bold"
                       >
-                        Annuler
+                        {t('cancel')}
                       </button>
                       <button 
                         type="submit"
                         className="flex-1 bg-emerald-600 text-white rounded-xl py-3 font-bold shadow-lg shadow-emerald-600/20"
                       >
-                        Enregistrer
+                        {t('save')}
                       </button>
                     </div>
                   </form>
@@ -581,7 +580,7 @@ export function Health() {
                       </div>
                       <div>
                         <h3 className="text-lg font-bold text-gray-900">{selectedStudent.prenom} {selectedStudent.nom}</h3>
-                        <p className="text-xs text-gray-500 font-medium">Matricule: {selectedStudent.matricule}</p>
+                        <p className="text-xs text-gray-500 font-semibold">{t('matricule')}: {selectedStudent.matricule}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="px-2 py-0.5 rounded-full bg-white border border-emerald-200 text-[10px] font-bold text-emerald-700">
                             {selectedMedicalRecord?.groupe_sanguin || 'N/A'}
@@ -598,17 +597,17 @@ export function Health() {
                     {/* Vitals Summary */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-4 bg-gray-50 rounded-xl space-y-1">
-                        <p className="text-[10px] uppercase font-bold text-gray-400">Allergies</p>
+                        <p className="text-[10px] uppercase font-bold text-gray-400">{t('allergies')}</p>
                         <p className={cn(
                           "text-sm font-bold",
                           selectedMedicalRecord?.allergies !== 'Aucune' ? "text-red-600" : "text-emerald-600"
                         )}>
-                          {selectedMedicalRecord?.allergies || 'Non renseigné'}
+                          {selectedMedicalRecord?.allergies || t('not_specified')}
                         </p>
                       </div>
                       <div className="p-4 bg-gray-50 rounded-xl space-y-1">
-                        <p className="text-[10px] uppercase font-bold text-gray-400">Contact Urgence</p>
-                        <p className="text-sm font-bold text-gray-800">{selectedMedicalRecord?.contact_urgence_nom || 'Non renseigné'}</p>
+                        <p className="text-[10px] uppercase font-bold text-gray-400">{t('emergency_contact_name')}</p>
+                        <p className="text-sm font-bold text-gray-800">{selectedMedicalRecord?.contact_urgence_nom || t('not_specified')}</p>
                         <p className="text-[10px] text-gray-500">{selectedMedicalRecord?.contact_urgence_tel || ''}</p>
                       </div>
                     </div>
@@ -616,7 +615,7 @@ export function Health() {
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
                         <History className="w-5 h-5 text-gray-400" />
-                        <h4 className="font-bold text-gray-800">Historique des Consultations</h4>
+                        <h4 className="font-bold text-gray-800">{t('consultation_history')}</h4>
                       </div>
                       <div className="space-y-4">
                         {selectedStudentConsultations.length > 0 ? (
@@ -630,11 +629,11 @@ export function Health() {
                               <div>
                                 <p className="text-sm font-bold text-gray-800 italic">{c.diagnostic}</p>
                                 <p className="text-xs text-gray-500 mt-1 italic leading-relaxed">
-                                  Symptômes: {c.symptomes}
+                                  {t('symptoms_reported')}: {c.symptomes}
                                 </p>
                                 <div className="flex items-start gap-2 mt-2 bg-gray-50 p-2 rounded-lg italic">
                                   <Pill className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5 italic" />
-                                  <p className="text-[11px] text-gray-600 italic">Traitement: {c.traitement}</p>
+                                  <p className="text-[11px] text-gray-600 italic">{t('treatment_prescribed')}: {c.traitement}</p>
                                 </div>
                               </div>
                             </div>
@@ -642,7 +641,7 @@ export function Health() {
                         ) : (
                           <div className="text-center py-8">
                             <Activity className="w-12 h-12 text-gray-200 mx-auto mb-2" />
-                            <p className="text-sm text-gray-400 italic">Aucune consultation enregistrée.</p>
+                            <p className="text-sm text-gray-400 italic">{t('no_consultation_recorded')}</p>
                           </div>
                         )}
                       </div>
@@ -657,7 +656,7 @@ export function Health() {
                     onClick={handleStartEdit}
                     className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/20"
                   >
-                    Modifier la fiche de base
+                    {t('edit_medical_record')}
                   </button>
                 </div>
               )}

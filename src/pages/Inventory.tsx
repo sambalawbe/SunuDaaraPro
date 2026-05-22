@@ -29,14 +29,16 @@ export function Inventory() {
     addMouvement, 
     categoriesLogistique, 
     addArticle, 
-    addCategoryLogistique 
+    addCategoryLogistique,
+    searchQuery,
+    setSearchQuery,
+    t
   } = useApp();
 
   const [activeView, setActiveView] = React.useState<'stock' | 'history'>('stock');
   const [isArticleModalOpen, setIsArticleModalOpen] = React.useState(false);
   const [isMovementModalOpen, setIsMovementModalOpen] = React.useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = React.useState(false);
-  const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = React.useState('Toutes');
 
   // Category modal states
@@ -84,14 +86,14 @@ export function Inventory() {
   });
 
   const getStockStatus = (article: Article) => {
-    if (article.quantite === 0) return { label: 'Rupture', color: 'bg-red-100 text-red-700 border-red-200', icon: AlertTriangle };
-    if (article.quantite <= article.seuil_alerte) return { label: 'Stock Bas', color: 'bg-orange-100 text-orange-700 border-orange-200', icon: AlertTriangle };
-    return { label: 'En Stock', color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle2 };
+    if (article.quantite === 0) return { label: t('out_of_stock'), color: 'bg-red-100 text-red-700 border-red-200', icon: AlertTriangle };
+    if (article.quantite <= article.seuil_alerte) return { label: t('low_stock'), color: 'bg-orange-100 text-orange-700 border-orange-200', icon: AlertTriangle };
+    return { label: t('in_stock'), color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle2 };
   };
 
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) {
-      setCategoryError('Veuillez saisir un nom de catégorie.');
+      setCategoryError(t('please_enter_category_name'));
       return;
     }
     const success = await addCategoryLogistique(newCategoryName.trim());
@@ -100,13 +102,13 @@ export function Inventory() {
       setCategoryError('');
       setIsCategoryModalOpen(false);
     } else {
-      setCategoryError('Cette catégorie existe déjà ou impossible de la créer.');
+      setCategoryError(t('category_already_exists_or_error'));
     }
   };
 
   const handleCreateArticle = async () => {
     if (!newArticleRef.trim() || !newArticleNom.trim() || !newArticleCat) {
-      setArticleError('Veuillez remplir tous les champs obligatoires.');
+      setArticleError(t('please_fill_all_required_fields'));
       return;
     }
     const success = await addArticle({
@@ -126,22 +128,22 @@ export function Inventory() {
       setNewArticleSeuil(5);
       setArticleError('');
     } else {
-      setArticleError("Erreur de création. La référence existe peut-être déjà.");
+      setArticleError(t('article_creation_error'));
     }
   };
 
   const handleCreateMouvement = async () => {
     const targetArticleId = mvtArticleId || (articles[0]?.id);
     if (!targetArticleId) {
-      setMvtError("Aucun article disponible.");
+      setMvtError(t('no_article_available'));
       return;
     }
     if (mvtQuantite <= 0) {
-      setMvtError("La quantité doit être supérieure à 0.");
+      setMvtError(t('quantity_must_be_greater_than_0'));
       return;
     }
     if (!mvtMotif.trim()) {
-      setMvtError("Veuillez spécifier un motif.");
+      setMvtError(t('please_specify_reason'));
       return;
     }
     await addMouvement({
@@ -182,8 +184,8 @@ export function Inventory() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Logistique & Inventaire</h1>
-          <p className="text-gray-500 text-sm">Gestion des stocks et des mouvements de matériel.</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('logistics_inventory')}</h1>
+          <p className="text-gray-500 text-sm">{t('logistics_subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <button 
@@ -191,21 +193,21 @@ export function Inventory() {
             className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-50 transition-colors flex items-center gap-2"
           >
             <FolderPlus className="w-4 h-4 text-green-600" />
-            <span>Nouvelle Catégorie</span>
+            <span>{t('new_category')}</span>
           </button>
           <button 
             onClick={() => setIsArticleModalOpen(true)}
             className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-50 transition-colors flex items-center gap-2"
           >
             <Plus className="w-4 h-4 text-green-600" />
-            <span>Nouvel Article</span>
+            <span>{t('new_article')}</span>
           </button>
           <button 
             onClick={() => setIsMovementModalOpen(true)}
             className="px-4 py-2 bg-green-700 text-white rounded-xl text-sm font-bold hover:bg-green-800 transition-all shadow-lg shadow-green-700/20 flex items-center gap-2"
           >
             <TrendingUp className="w-4 h-4" />
-            <span>Mouvement</span>
+            <span>{t('stock_movement')}</span>
           </button>
         </div>
       </div>
@@ -214,25 +216,25 @@ export function Inventory() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <StatCard 
           icon={Package} 
-          label="Total Articles" 
+          label={t('total_articles')} 
           value={totalArticles} 
           color="bg-green-50 text-green-600" 
         />
         <StatCard 
           icon={AlertTriangle} 
-          label="Alertes Stock" 
+          label={t('stock_alerts')} 
           value={articlesCritiquesCount} 
           color="bg-red-50 text-red-600" 
         />
         <StatCard 
           icon={ArrowUpRight} 
-          label="Entrées (Mois)" 
+          label={t('entries_month')} 
           value={mouvements.filter(m => m.type_mouvement === 'Entrée').length} 
           color="bg-blue-50 text-blue-600" 
         />
         <StatCard 
           icon={ArrowDownLeft} 
-          label="Sorties (Mois)" 
+          label={t('exits_month')} 
           value={mouvements.filter(m => m.type_mouvement === 'Sortie').length} 
           color="bg-orange-50 text-orange-600" 
         />
@@ -248,7 +250,7 @@ export function Inventory() {
           )}
         >
           <Package className="w-4 h-4" />
-          Stock Actuel
+          {t('current_stock')}
         </button>
         <button 
           onClick={() => setActiveView('history')}
@@ -258,7 +260,7 @@ export function Inventory() {
           )}
         >
           <History className="w-4 h-4" />
-          Historique
+          {t('history')}
         </button>
       </div>
 
@@ -277,7 +279,7 @@ export function Inventory() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input 
                   type="text" 
-                  placeholder="Référence ou nom..."
+                  placeholder={t('ref_or_name_placeholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-green-500/20 text-black"
@@ -289,7 +291,7 @@ export function Inventory() {
                   onChange={(e) => setSelectedCategoryFilter(e.target.value)}
                   className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none text-black font-medium"
                 >
-                  <option value="Toutes">Toutes les catégories</option>
+                  <option value="Toutes">{t('all_categories')}</option>
                   {categoriesLogistique.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
@@ -304,12 +306,12 @@ export function Inventory() {
               <table className="w-full text-left">
                 <thead className="bg-gray-50 text-gray-500 text-[10px] uppercase font-bold tracking-widest">
                   <tr>
-                    <th className="px-6 py-4">Article</th>
-                    <th className="px-6 py-4">Catégorie</th>
-                    <th className="px-6 py-4">Quantité en Stock</th>
-                    <th className="px-6 py-4">Seuil Alerte</th>
-                    <th className="px-6 py-4">Statut</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
+                    <th className="px-6 py-4">{t('article')}</th>
+                    <th className="px-6 py-4">{t('category')}</th>
+                    <th className="px-6 py-4">{t('quantity_in_stock')}</th>
+                    <th className="px-6 py-4">{t('alert_threshold')}</th>
+                    <th className="px-6 py-4">{t('status')}</th>
+                    <th className="px-6 py-4 text-right">{t('actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -365,7 +367,7 @@ export function Inventory() {
                   {filteredArticles.length === 0 && (
                     <tr>
                       <td colSpan={6} className="px-6 py-10 text-center text-gray-400 text-sm">
-                        Aucun article trouvé.
+                        {t('no_article_found')}
                       </td>
                     </tr>
                   )}
@@ -385,11 +387,11 @@ export function Inventory() {
               <table className="w-full text-left">
                 <thead className="bg-gray-50 text-gray-500 text-[10px] uppercase font-bold tracking-widest">
                   <tr>
-                    <th className="px-6 py-4">Date</th>
-                    <th className="px-6 py-4">Type</th>
-                    <th className="px-6 py-4">Article</th>
-                    <th className="px-6 py-4">Quantité</th>
-                    <th className="px-6 py-4">Motif</th>
+                    <th className="px-6 py-4">{t('date')}</th>
+                    <th className="px-6 py-4">{t('type')}</th>
+                    <th className="px-6 py-4">{t('article')}</th>
+                    <th className="px-6 py-4">{t('quantity')}</th>
+                    <th className="px-6 py-4">{t('movement_reason')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -425,7 +427,7 @@ export function Inventory() {
                   {mouvements.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-6 py-10 text-center text-gray-400 text-sm">
-                        Aucun mouvement de stock enregistré.
+                        {t('no_movement_recorded')}
                       </td>
                     </tr>
                   )}
@@ -454,20 +456,20 @@ export function Inventory() {
               className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
             >
               <div className="p-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white">
-                <h2 className="text-xl font-bold text-gray-800">Nouvelle Catégorie</h2>
+                <h2 className="text-xl font-bold text-gray-800">{t('new_category')}</h2>
                 <button onClick={() => setIsCategoryModalOpen(false)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full">
                   <X className="w-6 h-6" />
                 </button>
               </div>
               <div className="p-8 space-y-4 text-black">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase">Nom de la Catégorie</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase">{t('category_name')}</label>
                   <input 
                     type="text" 
                     value={newCategoryName}
                     onChange={(e) => setNewCategoryName(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium" 
-                    placeholder="Ex: Équipements, Mobilier..." 
+                    placeholder={t('category_placeholder')} 
                   />
                 </div>
                 {categoryError && (
@@ -475,12 +477,12 @@ export function Inventory() {
                 )}
               </div>
               <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
-                <button onClick={() => setIsCategoryModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-white rounded-xl">Annuler</button>
+                <button onClick={() => setIsCategoryModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-white rounded-xl">{t('cancel')}</button>
                 <button 
                   onClick={handleCreateCategory}
                   className="px-8 py-2 bg-green-700 text-white rounded-xl text-sm font-bold hover:bg-green-800 shadow-lg shadow-green-700/20"
                 >
-                  Créer la Catégorie
+                  {t('add_category')}
                 </button>
               </div>
             </motion.div>
@@ -506,7 +508,7 @@ export function Inventory() {
               className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
             >
               <div className="p-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white">
-                <h2 className="text-xl font-bold text-gray-800">Nouvel Article</h2>
+                <h2 className="text-xl font-bold text-gray-800">{t('new_article')}</h2>
                 <button onClick={() => setIsArticleModalOpen(false)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full">
                   <X className="w-6 h-6" />
                 </button>
@@ -514,7 +516,7 @@ export function Inventory() {
               <div className="p-8 space-y-6 text-black">
                 <div className="grid grid-cols-2 gap-6">
                    <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Référence (Unique)</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase">{t('reference_unique')}</label>
                     <input 
                       type="text" 
                       value={newArticleRef}
@@ -524,7 +526,7 @@ export function Inventory() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Catégorie</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase">{t('category')}</label>
                     <div className="flex gap-2">
                       <select 
                         value={newArticleCat}
@@ -539,7 +541,7 @@ export function Inventory() {
                         onClick={() => setIsCategoryModalOpen(true)}
                         type="button"
                         className="p-3 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl transition-colors shrink-0"
-                        title="Créer une catégorie"
+                        title={t('new_category')}
                       >
                         <Plus className="w-5 h-5" />
                       </button>
@@ -547,18 +549,18 @@ export function Inventory() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase">Nom de l'Article</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase">{t('article_name')}</label>
                   <input 
                     type="text" 
                     value={newArticleNom}
                     onChange={(e) => setNewArticleNom(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium" 
-                    placeholder="Ex: Sac de Riz" 
+                    placeholder={t('article_name_placeholder')} 
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-6">
                    <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Quantité Initiale</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase">{t('initial_quantity')}</label>
                     <div className="flex">
                       <input 
                         type="number" 
@@ -571,16 +573,16 @@ export function Inventory() {
                         onChange={(e) => setNewArticleUnite(e.target.value)}
                         className="bg-gray-100 border border-gray-200 border-l-0 rounded-r-xl px-4 py-3 outline-none text-sm font-bold text-gray-700"
                       >
-                        <option value="Unités">Unités</option>
-                        <option value="Kg">Kg</option>
-                        <option value="Litres">Litres</option>
-                        <option value="Sacs">Sacs</option>
-                        <option value="Bidons">Bidons</option>
+                        <option value="Unités">{t('unit_units')}</option>
+                        <option value="Kg">{t('unit_kg')}</option>
+                        <option value="Litres">{t('unit_litres')}</option>
+                        <option value="Sacs">{t('unit_sacs')}</option>
+                        <option value="Bidons">{t('unit_bidons')}</option>
                       </select>
                     </div>
                   </div>
                    <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Seuil d'Alerte</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase">{t('alert_threshold')}</label>
                     <input 
                       type="number" 
                       value={newArticleSeuil}
@@ -594,12 +596,12 @@ export function Inventory() {
                 )}
               </div>
               <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
-                <button onClick={() => setIsArticleModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-white rounded-xl">Annuler</button>
+                <button onClick={() => setIsArticleModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-white rounded-xl">{t('cancel')}</button>
                 <button 
                   onClick={handleCreateArticle}
                   className="px-8 py-2 bg-green-700 text-white rounded-xl text-sm font-bold hover:bg-green-800 shadow-lg shadow-green-700/20"
                 >
-                  Créer Article
+                  {t('add_article')}
                 </button>
               </div>
             </motion.div>
@@ -625,7 +627,7 @@ export function Inventory() {
               className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
             >
                <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-green-700 text-white">
-                <h2 className="text-xl font-bold">Mouvement de Stock</h2>
+                <h2 className="text-xl font-bold">{t('stock_movement')}</h2>
                 <button onClick={() => setIsMovementModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full">
                   <X className="w-6 h-6" />
                 </button>
@@ -643,7 +645,7 @@ export function Inventory() {
                     )}
                   >
                     <PlusCircle className="w-6 h-6" />
-                    <span className="text-sm font-bold">ENTRÉE</span>
+                    <span className="text-sm font-bold">{t('movement_in')}</span>
                   </button>
                    <button 
                     type="button"
@@ -656,24 +658,24 @@ export function Inventory() {
                     )}
                   >
                     <MinusCircle className="w-6 h-6" />
-                    <span className="text-sm font-bold">SORTIE</span>
+                    <span className="text-sm font-bold">{t('movement_out')}</span>
                   </button>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Choisir l'Article</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase">{t('choose_article')}</label>
                     <select 
                       value={mvtArticleId}
                       onChange={(e) => setMvtArticleId(Number(e.target.value))}
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium"
                     >
                       {articles.map(a => <option key={a.id} value={a.id}>{a.nom} ({a.reference})</option>)}
-                      {articles.length === 0 && <option>Aucun article disponible</option>}
+                      {articles.length === 0 && <option>{t('no_article_available')}</option>}
                     </select>
                   </div>
                    <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase">Quantité</label>
+                      <label className="text-xs font-bold text-gray-400 uppercase">{t('quantity')}</label>
                       <input 
                         type="number" 
                         value={mvtQuantite}
@@ -682,7 +684,7 @@ export function Inventory() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase">Date</label>
+                      <label className="text-xs font-bold text-gray-400 uppercase">{t('date')}</label>
                       <input 
                         type="date" 
                         className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 text-black font-medium" 
@@ -692,13 +694,13 @@ export function Inventory() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Motif du mouvement</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase">{t('movement_reason')}</label>
                     <textarea 
                       rows={2} 
                       value={mvtMotif}
                       onChange={(e) => setMvtMotif(e.target.value)}
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 resize-none text-black font-medium" 
-                      placeholder="Ex: Consommation cuisine, don reçu..." 
+                      placeholder={t('movement_reason_placeholder')} 
                     />
                   </div>
                 </div>
@@ -707,12 +709,12 @@ export function Inventory() {
                 )}
               </div>
               <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
-                <button onClick={() => setIsMovementModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-white rounded-xl">Annuler</button>
+                <button onClick={() => setIsMovementModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-white rounded-xl">{t('cancel')}</button>
                 <button 
                   onClick={handleCreateMouvement}
                   className="px-8 py-2 bg-green-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-green-700/20 tracking-wide"
                 >
-                  Confirmer le Mouvement
+                  {t('confirm_movement')}
                 </button>
               </div>
             </motion.div>
