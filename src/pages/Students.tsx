@@ -717,7 +717,7 @@ export function Students() {
                             <option value={0}>{t('not_started')}</option>
                             {HIZB_LIST.map((hizb) => (
                               <option key={hizb.id} value={hizb.id}>
-                                {language === 'ar' ? hizb.nameAr : language === 'wo' ? hizb.nameWo : hizb.nameFr}
+                                {getHizbName(hizb.id, language, '')}
                               </option>
                             ))}
                           </select>
