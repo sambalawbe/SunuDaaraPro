@@ -142,7 +142,7 @@ export function Login() {
         {/* Footer Info */}
         <p className="text-center mt-8 text-[11px] text-slate-400 font-medium uppercase tracking-widest leading-loose">
           {t('login_footer_1')}<br />
-          © 2024 Sunu Daara Pro - Daara Sama Daara
+          © 2026 Sunu Daara Pro - Daara Sama Daara
         </p>
       </div>
     </div>

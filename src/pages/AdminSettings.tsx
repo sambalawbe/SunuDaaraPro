@@ -55,6 +55,7 @@ export function AdminSettings() {
     addUtilisateur, 
     toggleUserStatus, 
     updateUserRole, 
+    updateUtilisateur, 
     currentUser, 
     t,
     roles,
@@ -89,8 +90,10 @@ export function AdminSettings() {
   
   const [activeTab, setActiveTab] = React.useState<'users' | 'roles' | 'logs' | 'backup' | 'scolarite'>('users');
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = React.useState(false);
   const [editingRole, setEditingRole] = React.useState<Role | null>(null);
+  const [editingUser, setEditingUser] = React.useState<Utilisateur | null>(null);
 
   // Form state
   const [newUser, setNewUser] = React.useState({
@@ -339,9 +342,21 @@ export function AdminSettings() {
                         </button>
                       </td>
                       <td className="px-8 py-5 text-right">
-                        <button className="p-2 text-slate-300 hover:text-red-500 transition-colors">
-                          <Trash2 className="w-5 h-5" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button 
+                            onClick={() => {
+                              setEditingUser(user);
+                              setIsEditModalOpen(true);
+                            }}
+                            className="p-2 text-slate-400 hover:text-slate-950 hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
+                            title={t('edit')}
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -753,6 +768,123 @@ export function AdminSettings() {
                     className="flex-1 bg-slate-900 text-white rounded-[20px] py-4 font-bold shadow-2xl shadow-slate-900/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
                   >
                     {t('validate_account_btn')}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Modifier Compte */}
+      <AnimatePresence>
+        {isEditModalOpen && editingUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => {
+                setIsEditModalOpen(false);
+                setEditingUser(null);
+              }} 
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" 
+            />
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }} 
+              exit={{ scale: 0.95, opacity: 0 }} 
+              className="relative w-full max-w-lg bg-white rounded-[32px] shadow-2xl p-10 overflow-hidden text-slate-800"
+            >
+              <div className="absolute top-0 right-0 p-8">
+                <Lock className="w-12 h-12 text-slate-50 opacity-10 rotate-12" />
+              </div>
+              
+              <h2 className="text-2xl font-extrabold mb-2 text-slate-900">{t('edit_staff')}</h2>
+              <p className="text-sm text-slate-400 mb-8 italic">{t('edit_staff_subtitle')}</p>
+
+              <form className="space-y-6 text-black" onSubmit={async (e) => {
+                e.preventDefault();
+                if (editingUser) {
+                  const success = await updateUtilisateur(editingUser);
+                  if (success) {
+                    alert(t('user_update_success'));
+                    setIsEditModalOpen(false);
+                    setEditingUser(null);
+                  } else {
+                    alert(t('user_update_error'));
+                  }
+                }
+              }}>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{t('first_name')}</label>
+                    <input 
+                      type="text" 
+                      required 
+                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 focus:border-slate-900 outline-none transition-colors font-bold text-slate-800"
+                      value={editingUser.prenom}
+                      onChange={(e) => setEditingUser({ ...editingUser, prenom: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{t('last_name')}</label>
+                    <input 
+                      type="text" 
+                      required 
+                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 focus:border-slate-900 outline-none transition-colors font-bold text-slate-800"
+                      value={editingUser.nom}
+                      onChange={(e) => setEditingUser({ ...editingUser, nom: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{t('professional_email')}</label>
+                  <input 
+                    type="email" 
+                    required 
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 focus:border-slate-900 outline-none transition-colors font-bold text-slate-800"
+                    value={editingUser.email}
+                    onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{t('role_permissions')}</label>
+                  <div className="relative">
+                     <select 
+                        required 
+                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 focus:border-slate-900 outline-none transition-colors appearance-none font-bold text-slate-700 cursor-pointer"
+                        value={editingUser.role}
+                        onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+                      >
+                        {roles.map(r => (
+                          <option key={r.id} value={r.code}>
+                            {r.libelle} {r.code === 'SUPER_ADMIN' ? `(${t('director')})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <ShieldCheck className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                  </div>
+                </div>
+
+                <div className="pt-4 flex gap-4">
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setIsEditModalOpen(false);
+                      setEditingUser(null);
+                    }} 
+                    className="flex-1 py-4 text-slate-400 font-bold hover:text-slate-600 transition-colors cursor-pointer"
+                  >
+                    {t('cancel')}
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="flex-1 bg-slate-900 text-white rounded-[20px] py-4 font-bold shadow-2xl shadow-slate-900/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                  >
+                    {t('update_staff_btn')}
                   </button>
                 </div>
               </form>

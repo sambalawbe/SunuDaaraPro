@@ -391,6 +391,34 @@ async function startServer() {
     }
   });
 
+  app.put("/api/dons/:id", (req, res) => {
+    const { id } = req.params;
+    const { donateur_nom, montant, type_paiement, assignation, recu_numero, date_don } = req.body;
+    if (!donateur_nom || !montant || !type_paiement) {
+      return res.status(400).json({ error: "Les champs nom, montant et type de paiement sont requis." });
+    }
+    try {
+      db.prepare(`
+        UPDATE dons
+        SET donateur_nom = ?, montant = ?, type_paiement = ?, assignation = ?, recu_numero = ?, date_don = ?
+        WHERE id = ?
+      `).run(donateur_nom, montant, type_paiement, assignation || 'Général', recu_numero, date_don || new Date().toISOString(), id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/dons/:id", (req, res) => {
+    const { id } = req.params;
+    try {
+      db.prepare('DELETE FROM dons WHERE id = ?').run(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   // 6. Dépenses
   app.get("/api/depenses", (req, res) => {
     try {
@@ -856,6 +884,32 @@ async function startServer() {
         SET statut = CASE WHEN statut = 'Actif' THEN 'Suspendu' ELSE 'Actif' END 
         WHERE id = ?
       `).run(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/utilisateurs/:id", (req, res) => {
+    const { id } = req.params;
+    const { nom, prenom, email, role } = req.body;
+    if (!nom || !prenom || !email || !role) {
+      return res.status(400).json({ error: "Tous les champs (nom, prenom, email, role) sont requis." });
+    }
+    try {
+      const roleExists = db.prepare("SELECT 1 FROM roles WHERE code = ?").get(role);
+      if (!roleExists) {
+        return res.status(400).json({ error: "Rôle invalide ou inexistant." });
+      }
+      const emailExists = db.prepare("SELECT 1 FROM utilisateurs WHERE email = ? AND id != ?").get(email, id);
+      if (emailExists) {
+        return res.status(400).json({ error: "Cette adresse email est déjà utilisée." });
+      }
+      db.prepare(`
+        UPDATE utilisateurs 
+        SET nom = ?, prenom = ?, email = ?, role = ? 
+        WHERE id = ?
+      `).run(nom, prenom, email, role, id);
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message });

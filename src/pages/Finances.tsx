@@ -16,6 +16,7 @@ import {
   Heart,
   FileText,
   Trash,
+  Edit3,
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -33,6 +34,8 @@ export function Finances() {
     eleves,
     config,
     addDon, 
+    updateDon,
+    deleteDon,
     addDepense, 
     addPaie, 
     addPaiement,
@@ -45,7 +48,38 @@ export function Finances() {
   const [activeTab, setActiveTab] = React.useState<'dons' | 'depenses' | 'scolarite' | 'paies'>('dons');
   const [scolariteSubTab, setScolariteSubTab] = React.useState<'suivi' | 'transactions'>('suivi');
   const [isDonModalOpen, setIsDonModalOpen] = React.useState(false);
+  const [isDonEditModalOpen, setIsDonEditModalOpen] = React.useState(false);
+  const [editingDon, setEditingDon] = React.useState<Don | null>(null);
   const [isDepenseModalOpen, setIsDepenseModalOpen] = React.useState(false);
+
+  const handleDonEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDon || !editingDon.donateur_nom || !editingDon.montant) {
+      alert("Veuillez remplir tous les champs obligatoires.");
+      return;
+    }
+    const success = await updateDon({
+      ...editingDon,
+      montant: Number(editingDon.montant)
+    });
+    if (success) {
+      setIsDonEditModalOpen(false);
+      setEditingDon(null);
+    } else {
+      alert("Erreur lors de la modification du don.");
+    }
+  };
+
+  const handleDonDelete = async (id: number) => {
+    const don = dons.find(d => d.id === id);
+    if (!don) return;
+    if (confirm(`Voulez-vous vraiment supprimer le don de ${don.donateur_nom} (${don.montant.toLocaleString()} CFA) ?`)) {
+      const success = await deleteDon(id);
+      if (!success) {
+        alert("Erreur lors de la suppression du don.");
+      }
+    }
+  };
   const [isPaieModalOpen, setIsPaieModalOpen] = React.useState(false);
   const [isPaiementModalOpen, setIsPaiementModalOpen] = React.useState(false);
   const [selectedStudentForPayments, setSelectedStudentForPayments] = React.useState<Eleve | null>(null);
@@ -57,6 +91,8 @@ export function Finances() {
   });
   const [selectedPaiement, setSelectedPaiement] = React.useState<PaiementEleve | null>(null);
   const [selectedPaie, setSelectedPaie] = React.useState<Paie | null>(null);
+  const [selectedDon, setSelectedDon] = React.useState<Don | null>(null);
+  const [selectedDepense, setSelectedDepense] = React.useState<Depense | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = React.useState<number | null>(null);
   const [deleteConfirmPaieId, setDeleteConfirmPaieId] = React.useState<number | null>(null);
 
@@ -585,7 +621,32 @@ export function Finances() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600 italic">{don.assignation || 'Général'}</td>
                     <td className="px-6 py-4 text-right">
-                       <button className="text-gray-400 hover:text-blue-600"><FileText className="w-4 h-4" /></button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => setSelectedDon(don)}
+                          className="text-gray-400 hover:text-emerald-600 p-1"
+                          title={t('view_details') || "Voir Reçu"}
+                        >
+                          <FileText className="w-4 h-4 text-emerald-600" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setEditingDon(don);
+                            setIsDonEditModalOpen(true);
+                          }}
+                          className="text-gray-400 hover:text-blue-600 p-1"
+                          title={t('edit') || "Modifier"}
+                        >
+                          <Edit3 className="w-4 h-4 text-blue-600" />
+                        </button>
+                        <button 
+                          onClick={() => handleDonDelete(don.id)}
+                          className="text-gray-400 hover:text-red-600 p-1"
+                          title={t('delete') || "Supprimer"}
+                        >
+                          <Trash className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -599,7 +660,13 @@ export function Finances() {
                     <td className="px-6 py-4 font-bold text-red-600">-{depense.montant.toLocaleString()} CFA</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{new Date(depense.date_depense).toLocaleDateString()}</td>
                     <td className="px-6 py-4 text-right">
-                       <button className="text-gray-400 hover:text-blue-600"><FileText className="w-4 h-4" /></button>
+                       <button 
+                         onClick={() => setSelectedDepense(depense)}
+                         className="text-gray-400 hover:text-blue-600 p-1"
+                         title={t('view_details') || "Voir Détails"}
+                       >
+                         <FileText className="w-4 h-4 text-blue-600" />
+                       </button>
                     </td>
                   </tr>
                 ))
@@ -908,6 +975,68 @@ export function Finances() {
         )}
       </AnimatePresence>
 
+      {/* Modal Modifier Don */}
+      <AnimatePresence>
+        {isDonEditModalOpen && editingDon && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 text-slate-800">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setIsDonEditModalOpen(false); setEditingDon(null); }} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl p-8">
+              <h2 className="text-2xl font-bold mb-6 text-black">Modifier le Don</h2>
+              <form className="space-y-4 text-black" onSubmit={handleDonEditSubmit}>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase">Nom du Donateur</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={editingDon.donateur_nom} 
+                    onChange={(e) => setEditingDon({ ...editingDon, donateur_nom: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none font-bold text-slate-800" 
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 uppercase">Montant (CFA)</label>
+                    <input 
+                      type="number" 
+                      required 
+                      value={editingDon.montant} 
+                      onChange={(e) => setEditingDon({ ...editingDon, montant: Number(e.target.value) })}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none font-bold text-slate-800" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 uppercase">Type</label>
+                    <select 
+                      value={editingDon.type_paiement} 
+                      onChange={(e) => setEditingDon({ ...editingDon, type_paiement: e.target.value as any })}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none font-bold text-slate-800 cursor-pointer"
+                    >
+                      <option value="Espèces">Espèces</option>
+                      <option value="Transfert">Transfert</option>
+                      <option value="Nature">Nature</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase">Assignation (Optionnel)</label>
+                  <input 
+                    type="text" 
+                    value={editingDon.assignation || ''} 
+                    onChange={(e) => setEditingDon({ ...editingDon, assignation: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none font-bold text-slate-800" 
+                    placeholder="Ex: Alimentation, Médicaments..." 
+                  />
+                </div>
+                <div className="pt-4 flex gap-3">
+                  <button type="button" onClick={() => { setIsDonEditModalOpen(false); setEditingDon(null); }} className="flex-1 py-3 text-gray-500 font-bold hover:text-gray-700 transition-colors">Annuler</button>
+                  <button type="submit" className="flex-1 bg-green-700 text-white rounded-xl py-3 font-bold shadow-lg shadow-green-700/20 hover:scale-[1.01] transition-transform">Valider</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Modal Depense */}
       <AnimatePresence>
         {isDepenseModalOpen && (
@@ -1078,6 +1207,237 @@ export function Finances() {
                 >
                   <Download className="w-4 h-4" />
                   {t('download') || "Imprimer"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Don Viewer Modal */}
+      <AnimatePresence>
+        {selectedDon && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedDon(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 border border-gray-100 text-black">
+              {/* Receipt Content */}
+              <div id="don-receipt-print-area" className="space-y-6">
+                <div className="text-center pb-4 border-b border-dashed border-gray-200">
+                  <h3 className="text-lg font-black text-green-700 tracking-wider">SUNU DAARA PRO</h3>
+                  <p className="text-xs text-gray-400">Reçu de Don Solidaire</p>
+                  <div className="mt-4 inline-block bg-gray-50 px-3 py-1 rounded-full text-xs font-mono font-bold text-gray-600">
+                    {selectedDon.recu_numero || `REC-DON-${selectedDon.id}`}
+                  </div>
+                </div>
+                
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Date :</span>
+                    <span className="font-bold">{new Date(selectedDon.date_don).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Bienfaiteur :</span>
+                    <span className="font-bold">{selectedDon.donateur_nom}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Mode de Paiement :</span>
+                    <span className="font-bold">{selectedDon.type_paiement}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Assignation :</span>
+                    <span className="font-bold italic">{selectedDon.assignation || 'Général'}</span>
+                  </div>
+                  <div className="flex justify-between pt-4 border-t border-gray-100">
+                    <span className="text-lg font-bold text-gray-800">Montant du Don :</span>
+                    <span className="text-lg font-black text-green-700">{selectedDon.montant.toLocaleString()} CFA</span>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-dashed border-gray-200 flex flex-col items-center">
+                  <p className="text-[10px] text-gray-400 italic">Toute l'équipe de la Daara vous remercie chaleureusement.</p>
+                  <p className="text-[10px] text-gray-400 font-bold">Jazakum Allahu Khayran</p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-6 flex gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setSelectedDon(null)} 
+                  className="flex-1 py-3 text-gray-500 font-bold border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Fermer
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    const printContent = document.getElementById('don-receipt-print-area')?.innerHTML;
+                    if (printContent) {
+                      const win = window.open('', '_blank');
+                      if (win) {
+                        win.document.write(`
+                          <html>
+                            <head>
+                              <title>Reçu Don ${selectedDon.recu_numero || selectedDon.id}</title>
+                              <style>
+                                body { font-family: sans-serif; padding: 40px; text-align: left; color: #333; }
+                                .space-y-6 > * + * { margin-top: 1.5rem; }
+                                .space-y-3 > * + * { margin-top: 0.75rem; }
+                                .flex { display: flex; }
+                                .justify-between { justify-content: space-between; }
+                                .text-center { text-align: center; }
+                                .pb-4 { padding-bottom: 1rem; }
+                                .border-b { border-bottom: 1px solid #e5e7eb; }
+                                .border-b.border-dashed { border-bottom-style: dashed; }
+                                .border-t { border-top: 1px solid #e5e7eb; }
+                                .border-t.border-dashed { border-top-style: dashed; }
+                                .pt-4 { padding-top: 1rem; }
+                                .pt-6 { padding-top: 1.5rem; }
+                                .text-xs { font-size: 0.75rem; }
+                                .text-sm { font-size: 0.875rem; }
+                                .text-lg { font-size: 1.125rem; }
+                                .font-bold { font-weight: 700; }
+                                .font-black { font-weight: 900; }
+                                .font-mono { font-family: monospace; }
+                                .italic { font-style: italic; }
+                                .text-gray-400 { color: #9ca3af; }
+                                .text-gray-600 { color: #4b5563; }
+                                .text-green-700 { color: #15803d; }
+                                .mt-4 { margin-top: 1rem; }
+                                .rounded-full { border-radius: 9999px; }
+                                .bg-gray-50 { background-color: #f9fafb; }
+                                .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+                                .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+                              </style>
+                            </head>
+                            <body>
+                              <div style="max-width: 400px; margin: 0 auto; border: 1px solid #eee; padding: 20px; border-radius: 8px;">
+                                \${printContent}
+                              </div>
+                              <script>window.onload = function() { window.print(); window.close(); }</script>
+                            </body>
+                          </html>
+                        `);
+                        win.document.close();
+                      }
+                    }
+                  }}
+                  className="flex-1 bg-green-700 text-white rounded-xl py-3 font-bold shadow-lg shadow-green-700/20 hover:bg-green-800 transition-colors"
+                >
+                  Imprimer
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Depense Viewer Modal */}
+      <AnimatePresence>
+        {selectedDepense && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedDepense(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 border border-gray-100 text-black">
+              {/* Receipt Content */}
+              <div id="depense-print-area" className="space-y-6">
+                <div className="text-center pb-4 border-b border-dashed border-gray-200">
+                  <h3 className="text-lg font-black text-red-600 tracking-wider">SUNU DAARA PRO</h3>
+                  <p className="text-xs text-gray-400">Pièce Justificative de Dépense</p>
+                  <div className="mt-4 inline-block bg-gray-50 px-3 py-1 rounded-full text-xs font-mono font-bold text-gray-600">
+                    DEP-{selectedDepense.id.toString().padStart(4, '0')}
+                  </div>
+                </div>
+                
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Date :</span>
+                    <span className="font-bold">{new Date(selectedDepense.date_depense).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Libellé / Objet :</span>
+                    <span className="font-bold text-gray-800">{selectedDepense.libelle}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Catégorie :</span>
+                    <span className="font-bold px-2.5 py-0.5 bg-orange-50 text-orange-600 rounded-lg text-xs font-bold uppercase">{selectedDepense.categorie}</span>
+                  </div>
+                  <div className="flex justify-between pt-4 border-t border-gray-100">
+                    <span className="text-lg font-bold text-gray-800">Montant Décaissé :</span>
+                    <span className="text-lg font-black text-red-600">-{selectedDepense.montant.toLocaleString()} CFA</span>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-dashed border-gray-200 flex flex-col items-center">
+                  <p className="text-[10px] text-gray-400 italic">Validé par la Trésorerie de la Daara.</p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-6 flex gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setSelectedDepense(null)} 
+                  className="flex-1 py-3 text-gray-500 font-bold border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Fermer
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    const printContent = document.getElementById('depense-print-area')?.innerHTML;
+                    if (printContent) {
+                      const win = window.open('', '_blank');
+                      if (win) {
+                        win.document.write(`
+                          <html>
+                            <head>
+                              <title>Pièce Dépense DEP-\${selectedDepense.id}</title>
+                              <style>
+                                body { font-family: sans-serif; padding: 40px; text-align: left; color: #333; }
+                                .space-y-6 > * + * { margin-top: 1.5rem; }
+                                .space-y-3 > * + * { margin-top: 0.75rem; }
+                                .flex { display: flex; }
+                                .justify-between { justify-content: space-between; }
+                                .text-center { text-align: center; }
+                                .pb-4 { padding-bottom: 1rem; }
+                                .border-b { border-bottom: 1px solid #e5e7eb; }
+                                .border-b.border-dashed { border-bottom-style: dashed; }
+                                .border-t { border-top: 1px solid #e5e7eb; }
+                                .border-t.border-dashed { border-top-style: dashed; }
+                                .pt-4 { padding-top: 1rem; }
+                                .pt-6 { padding-top: 1.5rem; }
+                                .text-xs { font-size: 0.75rem; }
+                                .text-sm { font-size: 0.875rem; }
+                                .text-lg { font-size: 1.125rem; }
+                                .font-bold { font-weight: 700; }
+                                .font-black { font-weight: 900; }
+                                .font-mono { font-family: monospace; }
+                                .italic { font-style: italic; }
+                                .text-gray-400 { color: #9ca3af; }
+                                .text-gray-600 { color: #4b5563; }
+                                .text-red-600 { color: #dc2626; }
+                                .mt-4 { margin-top: 1rem; }
+                                .rounded-full { border-radius: 9999px; }
+                                .bg-gray-50 { background-color: #f9fafb; }
+                                .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+                                .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+                              </style>
+                            </head>
+                            <body>
+                              <div style="max-width: 400px; margin: 0 auto; border: 1px solid #eee; padding: 20px; border-radius: 8px;">
+                                \${printContent}
+                              </div>
+                              <script>window.onload = function() { window.print(); window.close(); }</script>
+                            </body>
+                          </html>
+                        `);
+                        win.document.close();
+                      }
+                    }
+                  }}
+                  className="flex-1 bg-slate-900 text-white rounded-xl py-3 font-bold shadow-lg shadow-slate-900/10 hover:bg-slate-800 transition-colors"
+                >
+                  Imprimer
                 </button>
               </div>
             </motion.div>

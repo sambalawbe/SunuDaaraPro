@@ -58,10 +58,13 @@ interface AppContextType extends AppState {
   addCategoryLogistique: (nom: string) => Promise<boolean>;
   addMouvement: (mouvement: StockMovement) => Promise<void>;
   addDon: (don: Don) => Promise<void>;
+  updateDon: (don: Don) => Promise<boolean>;
+  deleteDon: (id: number) => Promise<boolean>;
   addDepense: (depense: Depense) => Promise<void>;
   addUtilisateur: (user: Omit<Utilisateur, 'id' | 'date_creation'>) => Promise<void>;
   toggleUserStatus: (id: number) => Promise<void>;
   updateUserRole: (id: number, role: UserRole) => Promise<boolean>;
+  updateUtilisateur: (user: Utilisateur) => Promise<boolean>;
   canAccess: (tabId: string) => boolean;
   login: (email: string, mdp: string) => Promise<boolean>;
   logout: () => void;
@@ -336,6 +339,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateUtilisateur = async (user: Utilisateur): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/utilisateurs/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nom: user.nom,
+          prenom: user.prenom,
+          email: user.email,
+          role: user.role
+        })
+      });
+      if (res.ok) {
+        // Log Audit
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            utilisateur_id: state.currentUser?.id || 0,
+            action: `A modifié l'utilisateur ${user.prenom} ${user.nom}`,
+            adresse_ip: '127.0.0.1'
+          })
+        });
+        await refreshData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
   const addDon = async (don: Don) => {
     try {
       const res = await fetch('/api/dons', {
@@ -357,6 +393,61 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const updateDon = async (don: Don): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/dons/${don.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(don)
+      });
+      if (res.ok) {
+        // Log Audit
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            utilisateur_id: state.currentUser?.id || 0,
+            action: `A modifié le don de ${don.donateur_nom} d'un montant de ${don.montant.toLocaleString()} CFA`
+          })
+        });
+        await refreshData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
+  const deleteDon = async (id: number): Promise<boolean> => {
+    try {
+      const don = state.dons.find(d => d.id === id);
+      const res = await fetch(`/api/dons/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        if (don) {
+          // Log Audit
+          await fetch('/api/audit-logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              utilisateur_id: state.currentUser?.id || 0,
+              action: `A supprimé le don de ${don.donateur_nom} d'un montant de ${don.montant.toLocaleString()} CFA`
+            })
+          });
+        }
+        await refreshData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
     }
   };
 
@@ -828,10 +919,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addCategoryLogistique,
       addMouvement,
       addDon,
+      updateDon,
+      deleteDon,
       addDepense,
       addUtilisateur,
       toggleUserStatus,
       updateUserRole,
+      updateUtilisateur,
       canAccess,
       login,
       logout,
