@@ -814,6 +814,31 @@ async function startServer() {
     }
   });
 
+  app.put("/api/templates/:id", (req, res) => {
+    const { id } = req.params;
+    const { titre, canal, contenu } = req.body;
+    try {
+      db.prepare(`
+        UPDATE message_templates
+        SET titre = ?, canal = ?, contenu = ?
+        WHERE id = ?
+      `).run(titre, canal, contenu, id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/templates/:id", (req, res) => {
+    const { id } = req.params;
+    try {
+      db.prepare('DELETE FROM message_templates WHERE id = ?').run(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   app.get("/api/logs-communication", (req, res) => {
     try {
       const rows = db.prepare('SELECT * FROM logs_communication ORDER BY date_envoi DESC').all();

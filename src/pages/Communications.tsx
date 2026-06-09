@@ -51,6 +51,7 @@ export function Communications() {
   const [newTemplateTitle, setNewTemplateTitle] = React.useState('');
   const [newTemplateCanal, setNewTemplateCanal] = React.useState<'SMS' | 'WhatsApp' | 'Email'>('SMS');
   const [newTemplateContenu, setNewTemplateContenu] = React.useState('');
+  const [editingTemplate, setEditingTemplate] = React.useState<MessageTemplate | null>(null);
 
   const getTargets = () => {
     if (targetFilter === 'manual') {
@@ -273,11 +274,13 @@ export function Communications() {
     reader.readAsText(file);
   };
 
-  const handleCreateTemplate = async () => {
+  const handleSaveTemplate = async () => {
     if (!newTemplateTitle || !newTemplateContenu) return;
     try {
-      const res = await fetch('/api/templates', {
-        method: 'POST',
+      const url = editingTemplate ? `/api/templates/${editingTemplate.id}` : '/api/templates';
+      const method = editingTemplate ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           titre: newTemplateTitle,
@@ -287,17 +290,22 @@ export function Communications() {
       });
       if (res.ok) {
         await refreshData();
-        setIsTemplateModalOpen(false);
-        setNewTemplateTitle('');
-        setNewTemplateContenu('');
-        setNewTemplateCanal('SMS');
+        handleCloseTemplateModal();
       } else {
-        alert(t('template_create_error'));
+        alert(editingTemplate ? t('template_update_error') : t('template_create_error'));
       }
     } catch (e) {
       console.error(e);
       alert(t('template_create_network_error'));
     }
+  };
+
+  const handleCloseTemplateModal = () => {
+    setIsTemplateModalOpen(false);
+    setNewTemplateTitle('');
+    setNewTemplateContenu('');
+    setNewTemplateCanal('SMS');
+    setEditingTemplate(null);
   };
 
   const sponsorsCount = eleves.filter(e => e.statut_prise_en_charge === 'Parrainé').length;
@@ -330,7 +338,13 @@ export function Communications() {
         </div>
         <div className="flex items-center gap-2">
           <button 
-            onClick={() => setIsTemplateModalOpen(true)}
+            onClick={() => {
+              setEditingTemplate(null);
+              setNewTemplateTitle('');
+              setNewTemplateCanal('SMS');
+              setNewTemplateContenu('');
+              setIsTemplateModalOpen(true);
+            }}
             className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-50 transition-colors flex items-center gap-2"
           >
             <Layout className="w-4 h-4" />
@@ -505,7 +519,13 @@ export function Communications() {
                   {t('template_manager')}
                 </h2>
                 <button 
-                  onClick={() => setIsTemplateModalOpen(true)}
+                  onClick={() => {
+                    setEditingTemplate(null);
+                    setNewTemplateTitle('');
+                    setNewTemplateCanal('SMS');
+                    setNewTemplateContenu('');
+                    setIsTemplateModalOpen(true);
+                  }}
                   className="px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-100 transition-colors flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" />
@@ -518,8 +538,42 @@ export function Communications() {
                     <div className="flex items-center justify-between mb-2">
                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{template.canal}</span>
                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="p-1 hover:bg-white rounded-md text-gray-400 hover:text-blue-600"><FileText className="w-3.5 h-3.5"/></button>
-                          <button className="p-1 hover:bg-white rounded-md text-gray-400 hover:text-red-600"><X className="w-3.5 h-3.5"/></button>
+                          <button 
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingTemplate(template);
+                              setNewTemplateTitle(template.titre);
+                              setNewTemplateCanal(template.canal);
+                              setNewTemplateContenu(template.contenu);
+                              setIsTemplateModalOpen(true);
+                            }}
+                            className="p-1 hover:bg-white rounded-md text-gray-400 hover:text-blue-600"
+                          >
+                            <FileText className="w-3.5 h-3.5"/>
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (window.confirm(t('confirm_delete_template'))) {
+                                try {
+                                  const res = await fetch(`/api/templates/${template.id}`, { method: 'DELETE' });
+                                  if (res.ok) {
+                                    await refreshData();
+                                  } else {
+                                    alert(t('template_delete_error'));
+                                  }
+                                } catch (err) {
+                                  console.error(err);
+                                  alert(t('error_occurred'));
+                                }
+                              }
+                            }}
+                            className="p-1 hover:bg-white rounded-md text-gray-400 hover:text-red-600"
+                          >
+                            <X className="w-3.5 h-3.5"/>
+                          </button>
                        </div>
                     </div>
                     <h3 className="font-bold text-gray-900 border-l-4 border-blue-600 pl-3 mb-2">{template.titre}</h3>
@@ -923,7 +977,7 @@ export function Communications() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setIsTemplateModalOpen(false)}
+              onClick={handleCloseTemplateModal}
               className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             />
             <motion.div 
@@ -932,7 +986,9 @@ export function Communications() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl p-8 italic"
             >
-              <h2 className="text-xl font-bold mb-6 text-black italic">{t('create_new_template')}</h2>
+              <h2 className="text-xl font-bold mb-6 text-black italic">
+                {editingTemplate ? t('edit_template') : t('create_new_template')}
+              </h2>
               <div className="space-y-4 text-black italic">
                  <div className="space-y-2 italic">
                    <label className="text-xs font-bold text-gray-400 italic uppercase">{t('template_title')}</label>
@@ -968,9 +1024,9 @@ export function Communications() {
                  </div>
               </div>
               <div className="mt-8 flex justify-end gap-3 italic">
-                 <button onClick={() => setIsTemplateModalOpen(false)} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-colors italic">{t('close')}</button>
+                 <button onClick={handleCloseTemplateModal} className="px-6 py-2 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-colors italic">{t('close')}</button>
                  <button 
-                   onClick={handleCreateTemplate}
+                   onClick={handleSaveTemplate}
                    disabled={!newTemplateTitle || !newTemplateContenu}
                    className={cn(
                      "px-6 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/10 italic",
